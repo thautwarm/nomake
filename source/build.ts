@@ -484,8 +484,9 @@ const MakefileInstance = new MakefileRunner()
 
 
 
-export async function makefile(targets: string[])
+export async function makefile(targets?: string[])
 {
+    targets ??= Deno.args;
     for (const target of targets)
     {
         if (!target || target == "help")
