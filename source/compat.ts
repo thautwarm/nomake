@@ -159,26 +159,23 @@ export async function whichCommand(name: string)
         }
     }
 
-    if (!path.isAbsolute(name))
+    if (path.isAbsolute(name))
     {
-        let p = path.join(".", name);
-        p = path.resolve(p)
-        const found = await findExe(p);
-        if (found)
-        {
-            return found;
-        }
+        const found = await findExe(name);
+        if (found) return found;
     }
+
+    let p = path.join(".", name);
+    p = path.resolve(p)
+    const found = await findExe(p);
+    if (found) return found;
 
     for (const dir of list)
     {
         let p = path.join(dir, name);
         p = path.resolve(p)
         const found = await findExe(p);
-        if (found)
-        {
-            return found;
-        }
+        if (found) return found;
     }
     return undefined;
 }
