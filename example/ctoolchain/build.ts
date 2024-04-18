@@ -56,7 +56,7 @@ NM.target(
 
             C.optimizationLevel = 1;
 
-            await C.compileMakeProj(
+            await C.dumpCmake(
                 {
                     mode: 'exe',
                     dest: 'dist/cmake',

@@ -244,7 +244,7 @@ export class Compilation
         return compiler.compileExe(this, dest)
     }
 
-    async compileMakeProj(options: CMakeProjectOptions)
+    async dumpCmake(options: CMakeProjectOptions)
     {
 
         const destPath = new NM.Path(options.dest);
