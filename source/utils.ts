@@ -10,17 +10,11 @@ import { fs, readFile, tryAutoDecode } from "./compat.ts";
  *
  * Try to read the file using the following encodings in order until successful: utf-8, gbk, gb2312, gb18030, big5
  */
-export async function autoReadFile(path: string)
-{
-    try
-    {
-        return await fs.promises.readFile(
-            path,
-            'utf-8'
-        );
+export async function autoReadFile(path: string) {
+    try {
+        return await fs.promises.readFile(path, 'utf-8');
     }
-    catch
-    {
+    catch {
         /* ignore */
     }
 
@@ -32,28 +26,21 @@ export async function autoReadFile(path: string)
     return res;
 }
 
-export function forAll<T>(xs: Iterable<T>, pred: (x: T) => boolean): boolean
-{
-    for (const x of xs)
-    {
-        if (!pred(x))
-        {
+export function forAll<T>(xs: Iterable<T>, pred: (x: T) => boolean): boolean {
+    for (const x of xs) {
+        if (!pred(x)) {
             return false;
         }
     }
     return true;
 }
 
-export function equalU8Array(a: Uint8Array, b: Uint8Array): boolean
-{
-    if (a.length !== b.length)
-    {
+export function equalU8Array(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) {
         return false;
     }
-    for (let i = 0; i < a.length; i++)
-    {
-        if (a[i] !== b[i])
-        {
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
             return false;
         }
     }
@@ -62,51 +49,38 @@ export function equalU8Array(a: Uint8Array, b: Uint8Array): boolean
 
 
 
-export interface IDisposal
-{
+export interface IDisposal {
     dispose(): void;
 }
 
 export function use<T>(
     disposals: IDisposal | IDisposal[],
     f: () => T
-)
-{
-    if (Array.isArray(disposals))
-    {
-        try
-        {
+) {
+    if (Array.isArray(disposals)) {
+        try {
             return f()
         }
-        finally
-        {
-            for (const disposal of disposals)
-            {
-                try
-                {
+        finally {
+            for (const disposal of disposals) {
+                try {
                     disposal.dispose();
                 }
-                catch (e)
-                {
+                catch (e) {
                     console.log(e);
                 }
             }
         }
     }
-    else
-    {
-        try
-        {
+    else {
+        try {
             return f()
         }
-        finally
-        {
-            try
-            {
+        finally {
+            try {
                 disposals.dispose();
             }
-            catch (e)
-            {
+            catch (e) {
                 console.log(e);
             }
         }
@@ -116,45 +90,37 @@ export function use<T>(
 export async function useAsync<T>(
     disposals: IDisposal | IDisposal[],
     f: () => Promise<T>
-)
-{
-    if (Array.isArray(disposals))
-    {
-        try
-        {
+) {
+    if (Array.isArray(disposals)) {
+        try {
             return await f();
         }
-        finally
-        {
-            for (const disposal of disposals)
-            {
-                try
-                {
+        finally {
+            for (const disposal of disposals) {
+                try {
                     disposal.dispose();
                 }
-                catch (e)
-                {
+                catch (e) {
                     console.log(e);
                 }
             }
         }
     }
-    else
-    {
-        try
-        {
+    else {
+        try {
             return await f();
         }
-        finally
-        {
-            try
-            {
+        finally {
+            try {
                 disposals.dispose();
             }
-            catch (e_1)
-            {
+            catch (e_1) {
                 console.log(e_1);
             }
         }
     }
+}
+
+export function exit(code: number) {
+    Deno.exit(code);
 }

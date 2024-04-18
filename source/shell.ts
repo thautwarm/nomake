@@ -40,7 +40,46 @@ export type ShellExecOptions = {
      *
      * whether to print the command line
      */
-    print?: boolean
+    printCmd?: boolean,
+
+    /**
+     * 指定 stdout 模式 （默认为 'print'）
+     *
+     * - 'print': 直接打印命令执行过程中输出到 stdout 的内容
+     * - 'capture': 将命令执行过程中的 stdout 输出捕获到返回值的 stdout 字段
+     * - 'ignore': 完全忽略命令执行过程中对 stdout 的输出
+     *
+     * P.S: 当且仅当 stdout 为 'capture' 时，返回值的 stdout 字段才会被赋值
+     *
+     *
+     * Specify the mode for stdout (default to 'print')
+     *
+     * - 'print': directly print the content output to stdout during command execution
+     * - 'capture': capture the stdout output during command execution to the stdout field of the return value
+     * - 'ignore': completely ignore the output to stdout during command execution
+     *
+     * P.S: The stdout field of the return value will only be assigned when stdout is 'capture'
+     */
+    stdout?: 'ignore' | 'capture' | 'print',
+
+    /**
+     * 指定 stderr 模式 （默认情况：当 stdout 被设置时，默认与 stdout 一致；否则为 'print'）
+     *
+     * - 'print': 直接打印命令执行过程中输出到 stderr 的内容
+     * - 'capture': 将命令执行过程中的 stderr 输出捕获到返回值的 stderr 字段
+     * - 'ignore': 完全忽略命令执行过程中对 stderr 的输出
+     *
+     * P.S: 当且仅当 stderr 为 'capture' 时，返回值的 stderr 字段才会被赋值
+     *
+     * Specify the mode for stderr (default: when stdout is set, it is consistent with stdout; otherwise, it is 'print')
+     *
+     * - 'print': directly print the content output to stderr during command execution
+     * - 'capture': capture the stderr output during command execution to the stderr field of the return value
+     * - 'ignore': completely ignore the output to stderr during command execution
+     *
+     * P.S: The stderr field of the return value will only be assigned when stderr is 'capture'
+     */
+    stderr?: 'ignore' | 'capture' | 'print',
 
 }
 
@@ -128,15 +167,20 @@ export class Shell
 
 
 
-        if (options?.print)
+        if (options?.printCmd)
         {
             Log.msg(`running: ${Shell.join(argv)}`, 'Shell')
         }
+
+        const stdout = professional(options?.stdout);
+        const stderr = options?.stderr === undefined ? stdout : professional(options?.stderr);
+
         return await spawnCmd(
             argv,
             {
                 cwd: options?.cwd,
                 env: options?.env,
+                stdout, stderr,
             }
         )
 
@@ -150,5 +194,21 @@ export class Shell
     static which(executable: string): Promise<string | undefined>
     {
         return whichCommand(executable);
+    }
+}
+
+
+function professional(stream?: 'capture' | 'ignore' | 'print')
+{
+    switch (stream)
+    {
+        case 'capture':
+            return 'piped'
+        case 'ignore':
+            return 'null'
+        case 'print':
+            return 'inherit'
+        default:
+            return 'inherit'
     }
 }

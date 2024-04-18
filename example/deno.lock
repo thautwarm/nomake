@@ -1,0 +1,28 @@
+{
+  "version": "3",
+  "packages": {
+    "specifiers": {
+      "npm:shlex": "npm:shlex@2.1.2"
+    },
+    "npm": {
+      "shlex@2.1.2": {
+        "integrity": "sha512-Nz6gtibMVgYeMEhUjp2KuwAgqaJA1K155dU/HuDaEJUGgnmYfVtVZah+uerVWdH8UGnyahhDCgABbYTbs254+w==",
+        "dependencies": {}
+      }
+    }
+  },
+  "remote": {
+    "https://deno.land/std@0.223.0/encoding/_util.ts": "beacef316c1255da9bc8e95afb1fa56ed69baef919c88dc06ae6cb7a6103d376",
+    "https://deno.land/std@0.223.0/encoding/base64.ts": "dd59695391584c8ffc5a296ba82bcdba6dd8a84d41a6a539fbee8e5075286eaf",
+    "https://deno.land/std@0.71.0/encoding/hex.ts": "8dc1489e66b22fec26950c7a55391b12be0d9f9a80cbc7b422700cdff85cd2f7",
+    "https://deno.land/std@0.71.0/hash/md5.ts": "ebc56f9d9dd45c72da17ceceb8bc345849198098f1fff8832176eac598576b42",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/mod.ts": "c89d2fb6e5b42c3aef93f91f96ef9a548b0e8a4b899c4d10ccd73666495ab4a4",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/build.ts": "0a914d3ff26a1a17424e47180381c201252a47160f308988e541bef44effad28",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/compat.ts": "0166bf85b7f2afb77251d16f4e6a732c0fd27bcbe5ef8e3f013cee7d8fbb05f9",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/log.ts": "12817288eb997ffbae3c6289194ff936f714c5926aa2042c3280b176e502fcf5",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/pathlib.ts": "e537013cd017dc32bfec75971c8c2e3ad2637b4b557e6cb49859cb8e5511e8ea",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/platform.ts": "70a610de5cea66ea104bbad5fac2d8e7b00ec0a16447b18a79256b701b5f014b",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/shell.ts": "87c201baacd51f9ec7119ecd4ae6d97718c4b11e8153871d604a434fe6391cd0",
+    "https://raw.githubusercontent.com/thautwarm/nomakefile/main/source/utils.ts": "edcebb512d5fab4722b972fe01a2b8df0e959761a400b36afa74f27ba127c0db"
+  }
+}

@@ -244,10 +244,20 @@ export class Path
         return fs.promises.readFile(this.asOsPath(), encodingReal);
     }
 
+    readBytes(): Promise<Uint8Array>
+    {
+        return Deno.readFile(this.asOsPath());
+    }
+
     writeText(data: string, encoding?: BufferEncoding): Promise<void>
     {
         const encodingReal = encoding ?? 'utf-8';
         return fs.promises.writeFile(this.asOsPath(), data, encodingReal);
+    }
+
+    writeBytes(data: Uint8Array): Promise<void>
+    {
+        return Deno.writeFile(this.asOsPath(), data);
     }
 
     async mkdir(args?: { parents?: boolean, onError: 'existOk' | 'ignore' | ((error: any) => any), mode?: number })

@@ -1,8 +1,7 @@
 import { equalU8Array } from './utils.ts';
 import { Path } from './pathlib.ts';
 import { Log } from './log.ts';
-import { encodeBase64, decodeBase64, Md5Hasher } from "./compat.ts";
-import { getEnv } from "./compat.ts";
+import { encodeBase64, decodeBase64, Md5Hasher, getEnv } from "./compat.ts";
 
 export class Encode
 {
@@ -261,6 +260,40 @@ export class MakefileRunner
         {
             hgen.update('fs@')
             hgen.update(targetSelf)
+            const p = new Path(targetSelf);
+            if (await p.exists())
+            {
+                hgen.update("exist@")
+                hgen.update(cacheTextToB64(targetSelf))
+                if (await p.isFile())
+                {
+                    hgen.update("~file=")
+                    const buf = await p.readBytes();
+                    if (buf.length > 2)
+                    {
+                        buf[buf.length / 2] = buf[buf.length / 2] ^ 0xa8;
+                    }
+                    else if (buf.length == 2)
+                    {
+                        buf[0] = buf[0] ^ 0xa9;
+                        buf[1] = buf[1] ^ 0xa9;
+                    }
+                    else if (buf.length == 1)
+                    {
+                        buf[0] = buf[0] ^ 0xa2;
+                    }
+                    else
+                    {
+                        hgen.update("~|empty")
+                    }
+                    hgen.update(buf)
+                }
+            }
+            else
+            {
+                hgen.update("unknown@")
+                hgen.update(cacheTextToB64(targetSelf))
+            }
         }
         else
         {
@@ -329,6 +362,7 @@ export class MakefileRunner
                 Log.error(`No virtual target found for ${targetName}`)
                 throw new GracefulLeave(true)
             }
+
 
             let newHash = await this.computeHash(
                 deps,

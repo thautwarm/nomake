@@ -49,7 +49,7 @@ export function getEnv(name: string)
 }
 
 export async function spawnCmd(
-    argv: string[], options?: { cwd?: string, env?: { [key: string]: string } })
+    argv: string[], options?: { cwd?: string, env?: { [key: string]: string }, stderr?: "piped" | "inherit" | "null", stdout?: "piped" | "inherit" | "null" })
 {
     if (argv.length == 0)
     {
@@ -65,18 +65,18 @@ export async function spawnCmd(
         proc,
         {
             args: argv.slice(1),
-            stderr: 'piped',
-            stdout: 'piped',
+            stderr: options?.stderr,
+            stdout: options?.stdout,
             cwd: options?.cwd,
             env: options?.env,
         }
     )
 
     const out = await command.output()
-
+    const stdout = (options?.stdout !== 'piped') ? "" : (tryAutoDecode(out.stdout) ?? "<unknown stdout>");
+    const stderr = (options?.stderr !== 'piped') ? "" : (tryAutoDecode(out.stderr) ?? "<unknown stderr>");
     const res = {
-        stdout: tryAutoDecode(out.stdout) ?? "<unknown stdout>",
-        stderr: tryAutoDecode(out.stderr) ?? "<unknown stderr>",
+        stdout, stderr,
         success: out.code == 0,
         errorcode: out.code
     }
@@ -127,7 +127,7 @@ export async function whichCommand(name: string)
     let findExe: (p: string) => Promise<string | undefined>
     if (isWin)
     {
-        const exts = (Deno.env.get("PATHEXT") ?? ".exe;.cmd;.bat;.com")?.split(';') || [];
+        const exts = ((Deno.env.get("PATHEXT")?.toLowerCase()) ?? ".exe;.cmd;.bat;.com")?.split(';') || [];
 
         findExe = async (p: string) =>
         {
@@ -156,6 +156,17 @@ export async function whichCommand(name: string)
         {
             if (await isExe(p)) return p;
             return undefined;
+        }
+    }
+
+    if (!path.isAbsolute(name))
+    {
+        let p = path.join(".", name);
+        p = path.resolve(p)
+        const found = await findExe(p);
+        if (found)
+        {
+            return found;
         }
     }
 
