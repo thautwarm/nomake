@@ -2,7 +2,7 @@
 
 # NoMake: Static, Multi-lingual and Distributed Build System
 
-NoMake is a Multi-lingual build system that supports static type checking, intellisense and distributed building.
+NoMake is a build system that supports multiple programming languages, static type checking, intellisense and distributed building.
 
 ## Prerequisites
 
