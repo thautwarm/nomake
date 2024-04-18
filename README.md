@@ -54,9 +54,9 @@ How to support distributed building:
 - [x] `NM.Platform`: Platform-related operations (operating system, architecture, etc)
 - [x] `NM.Env`: modern operations on environment variables
 - [x] `NM.Path`: modern File/path operations  (similar to Python `pathlib`)
-- [ ] `nomake.Repo`: Repository operations
-- [x] (partial) `nomake.Log`: Logging operations
-- [x] (partial) `nomake.CC`: C/C++ toolchain operations
-- [ ] `nomake.NET`: .NET toolchain operations
-- [ ] `nomake.Julia`: Julia toolchain operations
+- [ ] `NM.Repo`: Repository operations
+- [x] (partial) `NM.Log`: Logging operations
+- [x] (partial) `NM.CC`: C/C++ toolchain operations
+- [ ] `NM.NET`: .NET toolchain operations
+- [ ] `NM.Julia`: Julia toolchain operations
 - [ ] Out-of-the-box distributed building capabilities

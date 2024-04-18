@@ -51,9 +51,9 @@ NM.makefile()
 - [x] 操作系统、架构等平台相关操作 `NM.Platform`
 - [x] 环境变量操作 `NM.Env`
 - [x] 文件/路径操作 `NM.Path` (类似 Python `pathlib`)
-- [ ] 仓库操作 `nomake.Repo`
-- [x] 日志操作 `nomake.Log`
-- [ ] C/C++ 工具链操作 `nomake.CC`
-- [ ] .NET 工具链操作 `nomake.NET`
-- [ ] Julia 工具链操作 `nomake.Julia`
+- [ ] 仓库操作 `NM.Repo`
+- [x] (部分实现) 日志操作 `NM.Log`
+- [ ] (部分实现) C/C++ 工具链操作 `NM.CC`
+- [ ] .NET 工具链操作 `NM.NET`
+- [ ] Julia 工具链操作 `NM.Julia`
 - [ ] 开箱即用的分布式构建能力
