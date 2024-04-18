@@ -147,7 +147,7 @@ export class Shell
             {
                 Log.error(res.stderr, `Shell`);
             }
-            Deno.exit(1);
+            throw new Error(`Command failed with code ${res.errorcode}`)
         }
         return res.stdout;
     }

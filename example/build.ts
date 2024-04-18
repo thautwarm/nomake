@@ -1,4 +1,3 @@
-import { constrainedMemory } from "node:process";
 import { NM, Artifacts } from "./build.config.ts";
 
 NM.target({

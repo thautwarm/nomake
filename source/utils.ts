@@ -121,6 +121,6 @@ export async function useAsync<T>(
     }
 }
 
-export function exit(code: number) {
+export function exit(code: number): never {
     Deno.exit(code);
 }
