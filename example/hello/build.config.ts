@@ -1,4 +1,4 @@
-import * as NM from "../mod.ts";
+import * as NM from "../../mod.ts";
 //  "https://raw.githubusercontent.com/thautwarm/nomakefile/main/mod.ts";
 export { NM }
 

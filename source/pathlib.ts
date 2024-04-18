@@ -329,6 +329,11 @@ export class Path
             {
                 await fs.promises.copyFile(this.asOsPath(), target.asOsPath());
             }
+            else if (!await target.exists())
+            {
+                await target.parent.mkdir({ onError: 'existOk', parents: true });
+                await fs.promises.copyFile(this.asOsPath(), target.asOsPath());
+            }
             else
             {
                 await fs.promises.copyFile(this.asOsPath(), target.join(this.name).asOsPath());
