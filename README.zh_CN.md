@@ -8,6 +8,7 @@
 2. 在项目根目录初始化 deno (`deno init`)，并创建 `build.ts` 中，输入以下代码：
 
 ```typescript
+// See nomake/example/welcome for the details
 // 未来将使用 branch tag 来指定版本
 import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
 export { NM }

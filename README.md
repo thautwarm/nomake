@@ -10,6 +10,7 @@ NoMake is a build system that supports multiple programming languages, static ty
 2. Initialize Deno in the project root directory using `deno init` and create a file named `build.ts` with the following content:
 
 ```typescript
+// See nomake/example/welcome for the details
 // Future versions will use branch tags to specify versions
 import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
 export { NM }
