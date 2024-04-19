@@ -9,7 +9,7 @@
 
 ```typescript
 // 未来将使用 branch tag 来指定版本
-import * as NM from 'https://raw.githubusercontent.com/thautwarm/nomakefile/main/mod.ts'
+import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
 export { NM }
 
 NM.target(
