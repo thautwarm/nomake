@@ -39,7 +39,7 @@ type Dep = string | Target
 export class Target
 {
     name: string
-    build: (() => void | Promise<void>)
+    build: (arg: { deps: string[], target: string }) => void | Promise<void>
     rebuild: 'always' | 'never' | 'onChanged'
     private deps: Dep[] | (() => (Dep[] | Promise<Dep[]>))
     virtual: boolean
@@ -65,7 +65,7 @@ export class Target
 
     constructor(
         name: string,
-        build: (() => void | Promise<void>),
+        build: ((arg: { deps: string[], target: string }) => void | Promise<void>),
         rebuild: 'always' | 'never' | 'onChanged',
         deps: Dep[] | (() => (Dep[] | Promise<Dep[]>)),
         virtual: boolean, doc?: string
@@ -122,7 +122,7 @@ export function target(
          *
          * The build logic of the target.
          */
-        build: (() => void | Promise<void>),
+        build: (arg: { deps: string[], target: string }) => void | Promise<void>,
         /**
          * 构建目标的重构建模式。
          *
@@ -404,7 +404,7 @@ export class MakefileRunner
                 }
             }
 
-            await this.runImpl(targetName);
+            await this.runImpl(targetName, deps);
 
             newHash = await this.computeHash(
                 deps,
@@ -421,7 +421,7 @@ export class MakefileRunner
         }
     }
 
-    private async runImpl(targetName: string)
+    private async runImpl(targetName: string, deps: string[])
     {
         try
         {
@@ -459,7 +459,9 @@ export class MakefileRunner
             // to comfort the type checker
             if (target)
             {
-                await target.build()
+                await target.build({
+                    deps, target: targetName
+                })
             }
         }
         finally

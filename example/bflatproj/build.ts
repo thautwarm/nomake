@@ -1,45 +1,42 @@
 import { NM } from "../hello/build.config.ts";
 
+const assureDir = (target: string) =>
+    new NM.Path(target).parent.mkdir(
+        { parents: true, onError: 'existOk' }
+    )
+
+
 const windowsBuild = NM.target(
     {
         name: 'dist/windows-x64/example.exe',
         deps: ['example.cs'],
-        async build()
+        async build(
+            {
+                target // retrieve 'name' without repeating yourself
+            })
         {
             const build = new NM.Bflat.Build();
             build.mode = 'exe';
             build.os = 'windows';
 
-            await new NM.Path('dist/windows-x64').mkdir(
-                {
-                    parents: true,
-                    onError: 'existOk'
-                }
-            )
-
-            await build.run('dist/windows-x64/example.exe')
+            await assureDir(target)
+            await build.run(target)
         }
     }
 )
 
 const linuxBuild = NM.target(
     {
-        name: 'dist/linux-x64/example.exe',
+        name: 'dist/linux-x64/example',
         deps: ['example.cs'],
-        async build()
+        async build({ target })
         {
             const build = new NM.Bflat.Build();
             build.mode = 'exe';
             build.os = 'linux';
 
-            await new NM.Path('dist/linux-x64').mkdir(
-                {
-                    parents: true,
-                    onError: 'existOk'
-                }
-            )
-
-            await build.run('dist/linux-x64/example')
+            await assureDir(target)
+            await build.run(target)
         }
     }
 )
@@ -49,9 +46,9 @@ NM.target(
         name: 'build',
         deps: [windowsBuild, linuxBuild],
         virtual: true,
-        async build()
+        build()
         {
-
+            NM.Log.ok("Build finished")
         }
     }
 )
