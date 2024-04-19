@@ -11,7 +11,7 @@ NoMake is a build system that supports multiple programming languages, static ty
 
 ```typescript
 // Future versions will use branch tags to specify versions
-import * as NM from 'https://raw.githubusercontent.com/thautwarm/nomakefile/main/mod.ts'
+import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
 export { NM }
 
 NM.target(
