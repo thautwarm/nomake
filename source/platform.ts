@@ -27,6 +27,27 @@ export class Platform
         return new Platform(this.currentOS, this.currentArch);
     }
 
+    /**
+     * 返回操作系统对应的换行符。
+     * 当参数不指定操作系统时，返回当前操作系统的换行符。
+     *
+     * Return the line separator corresponding to the operating system.
+     * When the operating system is not specified as a parameter, return the line separator of the current operating system.
+     */
+    static linesep(os?: OS): string
+    {
+        switch (os ?? this.currentOS)
+        {
+            case 'linux':
+            case 'macos':
+                return '\n';
+            case 'windows':
+                return '\r\n';
+            default:
+                throw new Error(`Unknown OS: ${os}`);
+        }
+    }
+
     static get currentOS(): OS
     {
 

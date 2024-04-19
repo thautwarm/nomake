@@ -53,7 +53,7 @@ NM.makefile()
 - [x] 文件/路径操作 `NM.Path` (类似 Python `pathlib`)
 - [ ] 仓库操作 `NM.Repo`
 - [x] (部分实现) 日志操作 `NM.Log`
-- [ ] (部分实现) C/C++ 工具链操作 `NM.CC`
-- [ ] .NET 工具链操作 `NM.NET`
+- [x] (部分实现) C/C++ 工具链操作 `NM.CC`
+- [x] `NM.Bflat`: Bflat 工具链集成，支持 C# AOT 项目
 - [ ] Julia 工具链操作 `NM.Julia`
 - [ ] 开箱即用的分布式构建能力

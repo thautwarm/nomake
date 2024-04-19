@@ -1,5 +1,4 @@
-import * as NM from "../mod.ts";
-import { Log } from "./log.ts";
+import * as NM from "../../mod.ts";
 
 // compute endianess
 const IsBE = new Uint16Array(new Uint8Array([0x12, 0x34]).buffer)[0] === 0x1234;
@@ -194,6 +193,12 @@ function assertNever(x: any, tag: string): never
     throw new Error(`Unexpected ${tag}: ${x}`);
 }
 
+
+// TODO:
+// 1. add support for static library
+// 2. it is possible to link to a subcompilation
+//    export type CLinkLib =
+//     | { kind: 'subcompile', compilation: Compilation, libname: str }
 export type CLinkLib =
     | { kind: 'path', path: string }
     | { kind: 'name', name: string }
@@ -525,12 +530,27 @@ export class GCC extends CCompiler
         const argv: string[] = []
         if (compilation.cpp)
         {
-            argv.push('g++')
+            // check g++ or CXX
+            const gPlusPlus = await NM.Shell.which("g++");
+            if (!gPlusPlus)
+            {
+                NM.Log.error("g++ not found", "momake.cToolchain")
+                NM.fail();
+            }
+
+            argv.push(gPlusPlus)
             argv.push('-std=' + compilation.cpp)
         }
         else
         {
-            argv.push('gcc')
+            const gcc = await NM.Shell.which("gcc");
+            if (!gcc)
+            {
+                NM.Log.error("gcc not found", "momake.cToolchain")
+                NM.fail();
+            }
+
+            argv.push(gcc)
         }
 
         if (mode == 'shared')
@@ -705,15 +725,20 @@ export class Zig extends CCompiler
     )
     {
         const argv: string[] = []
+        const zigExe = await NM.Shell.which("zig");
+        if (!zigExe)
+        {
+            NM.Log.error("zig not found", "momake.cToolchain")
+            NM.fail();
+        }
+        argv.push(zigExe)
         if (compilation.cpp)
         {
-            argv.push('zig')
             argv.push('c++')
             argv.push('-std=' + compilation.cpp)
         }
         else
         {
-            argv.push('zig')
             argv.push('cc')
         }
 
@@ -786,7 +811,7 @@ export class Zig extends CCompiler
             const firstSourceFile = compilation.sources[0]
             if (firstSourceFile === undefined)
             {
-                Log.warn("No source file found in the compilation", "momake.cToolchain")
+                NM.Log.warn("No source file found in the compilation", "momake.cToolchain")
                 return;
             }
 
@@ -796,14 +821,14 @@ export class Zig extends CCompiler
             {
                 if (!source.isFile())
                 {
-                    Log.warn("No .lib file found in the compilation", "momake.cToolchain")
+                    NM.Log.warn("No .lib file found in the compilation", "momake.cToolchain")
                     return;
                 }
                 await source.copyTo(destPath.withExt(".lib"))
             }
             catch
             {
-                Log.warn(`Copying ${source.name} failed`, "momake.cToolchain")
+                NM.Log.warn(`Copying ${source.name} failed`, "momake.cToolchain")
             }
         }
     }

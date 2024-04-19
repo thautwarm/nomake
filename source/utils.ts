@@ -121,6 +121,14 @@ export async function useAsync<T>(
     }
 }
 
+/**
+ * 以指定的退出码退出进程。
+ * 如需允许其他构建以试错的方式继续执行，请使用 fail()
+ *
+ * Exit the process with the specified exit code.
+ * You might use fail() if you want to allow other
+ * build targets to continue in a try-catch manner.
+ */
 export function exit(code: number): never {
     Deno.exit(code);
 }

@@ -57,6 +57,6 @@ How to support distributed building:
 - [ ] `NM.Repo`: Repository operations
 - [x] (partial) `NM.Log`: Logging operations
 - [x] (partial) `NM.CC`: C/C++ toolchain operations
-- [ ] `NM.NET`: .NET toolchain operations
+- [x] `NM.Bflat`: Bflat toolchain integration to support C# AOT projects
 - [ ] `NM.Julia`: Julia toolchain operations
 - [ ] Out-of-the-box distributed building capabilities

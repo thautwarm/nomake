@@ -2,6 +2,7 @@ import { equalU8Array } from './utils.ts';
 import { Path } from './pathlib.ts';
 import { Log } from './log.ts';
 import { encodeBase64, decodeBase64, Md5Hasher, getEnv } from "./compat.ts";
+import { on } from "node:process";
 
 export class Encode
 {
@@ -360,7 +361,7 @@ export class MakefileRunner
                     return;
 
                 Log.error(`No virtual target found for ${targetName}`)
-                throw new GracefulLeave(true)
+                fail();
             }
 
 
@@ -468,20 +469,60 @@ export class MakefileRunner
     }
 }
 
-class GracefulLeave extends Error
-{
-    isError: boolean
-    constructor(isError: boolean)
-    {
-        super()
-        this.isError = isError
-    }
-}
+export class NonFatal extends Error
+{ }
 
 const NOMAKE_PROF = Boolean(getEnv('NOMAKE_PROF'))
 const Commands: Map<string, Target> = new Map()
 const MakefileInstance = new MakefileRunner()
 
+/**
+ * 使用场景：
+ * 1. 表示某项构建任务失败
+ * 2. 发生非致命但需要中断的情况（其他任务可根据试错结果进行响应）
+ *
+ * Use case:
+ * 1. Indicate that a build task fails
+ * 2. Non-fatal but need to interrupt the process (other tasks can respond according to the trial results)
+ */
+export function fail(): never
+{
+    throw new NonFatal();
+}
+
+/**
+ * 执行 trial()，如果捕获到 fail() 引发的异常，执行 onFailure() 并返回其结果。
+ *
+ * Execute trial(), if an exception caused by fail() is caught, execute onFailure() and return its result.
+ */
+export function allowFail<A>(trial: () => A, onFailure: () => A): A
+{
+    try
+    {
+        return trial();
+    }
+    catch (e)
+    {
+        if (e instanceof NonFatal)
+        {
+            return onFailure();
+        }
+        throw e;
+    }
+}
+
+export async function allowFailAsync<A>(trial: () => Promise<A>, onFailure: () => A): Promise<A>
+{
+    try
+    {
+        return await trial();
+    }
+    catch (e)
+    {
+        if (e instanceof NonFatal) return onFailure();
+        throw e;
+    }
+}
 
 
 export async function makefile(targets?: string[])

@@ -4,11 +4,25 @@ export * from './source/pathlib.ts'
 export * from './source/platform.ts'
 export * from './source/shell.ts'
 export * from './source/env.ts'
-import * as CC from './source/ctoolchain.ts'
-export {
+import * as SemVer from 'https://deno.land/std@0.223.0/semver/mod.ts';
+
+import * as Bflat from './source/toolchains/bflat.ts'
+import * as CC from './source/toolchains/cc.ts'
+export
+{
     /**
      * The C/C++ compiler toolchain.
      */
-    CC
+    CC,
+    /**
+     * SemVer module from Deno standard library.
+     */
+    SemVer,
+
+    /**
+     * The Bflat toolchain used to build
+     * C# projects on Windows, Linux, and UEFI.
+     */
+    Bflat
 }
 export { autoReadFile, exit } from './source/utils.ts'
