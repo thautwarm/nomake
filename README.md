@@ -4,7 +4,7 @@
 
 NoMake is a build system that supports multiple programming languages, static type checking, intellisense and distributed building.
 
-## Prerequisites
+## Get Started
 
 1. Install [Deno](https://deno.com/)
 2. Initialize Deno in the project root directory using `deno init` and create a file named `build.ts` with the following content:
@@ -14,18 +14,51 @@ NoMake is a build system that supports multiple programming languages, static ty
 import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
 export { NM }
 
-NM.target(
+const cBuild = NM.target({
+    name: 'dist/windows-x64/hello.exe',
+    deps: ['hello.c'], // or () => ['hello.c'] for lazy deps
+    async build({ target })
     {
-        name: 'build',
-        async build()
+        const C = new NM.CC.Compilation()
+        C.sources.push("hello.c")
+
+        await assureDir(target)
+        // cross compilation to windows no matter what the host platform is
+        await C.compileExe(target, new NM.CC.Zig({ os: 'windows' }))
+    }
+})
+
+const csBuild = NM.target(
+    {
+        name: 'dist/linux-x64/libhello.so',
+        deps: ['hello.cs'],
+        async build({ target })
         {
-            NM.Log.ok('Build Complete')
+            const build = new NM.Bflat.Build();
+            build.mode = 'shared';
+            build.os = 'linux';
+            await assureDir(target)
+            await build.run(target)
         }
     }
 )
 
+NM.target(
+    {
+        name: 'build',
+        deps: [cBuild, csBuild],
+        build: () => NM.Log.ok('Build Complete')
+    }
+)
+
+const assureDir = (target: string) =>
+    new NM.Path(target)
+          .parent.mkdir({ parents: true, onError: 'existOk' })
+
 NM.makefile()
 ```
+
+3. Run `deno run -A build.ts build` to build the project.
 
 ## Motivation
 

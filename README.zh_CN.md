@@ -2,7 +2,7 @@
 
 支持静态检查、补全的分布式多语言构建工具。
 
-## 要求
+## 如何使用
 
 1. [Deno](https://deno.com/)
 2. 在项目根目录初始化 deno (`deno init`)，并创建 `build.ts` 中，输入以下代码：
@@ -12,15 +12,46 @@
 import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
 export { NM }
 
-NM.target(
+const cBuild = NM.target({
+    name: 'dist/windows-x64/hello.exe',
+    deps: ['hello.c'], // or () => ['hello.c'] for lazy deps
+    async build({ target })
     {
-        name: 'build',
-        async build()
+        const C = new NM.CC.Compilation()
+        C.sources.push("hello.c")
+
+        await assureDir(target)
+        // cross compilation to windows no matter what the host platform is
+        await C.compileExe(target, new NM.CC.Zig({ os: 'windows' }))
+    }
+})
+
+const csBuild = NM.target(
+    {
+        name: 'dist/linux-x64/libhello.so',
+        deps: ['hello.cs'],
+        async build({ target })
         {
-            NM.Log.ok('Build Complete')
+            const build = new NM.Bflat.Build();
+            build.mode = 'shared';
+            build.os = 'linux';
+            await assureDir(target)
+            await build.run(target)
         }
     }
 )
+
+NM.target(
+    {
+        name: 'build',
+        deps: [cBuild, csBuild],
+        build: () => NM.Log.ok('Build Complete')
+    }
+)
+
+const assureDir = (target: string) =>
+    new NM.Path(target)
+          .parent.mkdir({ parents: true, onError: 'existOk' })
 
 NM.makefile()
 ```

@@ -323,6 +323,11 @@ export class Path
             target = new Path(target);
         }
 
+        if (!await this.exists())
+        {
+            throw new Error(`Path does not exist: ${this.asOsPath()}`);
+        }
+
         if (await this.isFile())
         {
             if (await target.isFile())

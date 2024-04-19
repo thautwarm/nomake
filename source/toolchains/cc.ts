@@ -37,7 +37,7 @@ export type CCOptions =
         endianness?: 'little' | 'big',
         libc?: 'glibc' | 'musl',
         glibcVersion?: string,
-        hardfloat: undefined
+        hardfloat?: undefined
     }
     | {
         os: 'linux',
@@ -45,7 +45,7 @@ export type CCOptions =
         endianness: 'little' | 'big',
         libc?: 'glibc' | 'musl',
         hardfloat: boolean,
-        glibcVersion: undefined
+        glibcVersion?: undefined
     }
 
 export class ZigToolchain
@@ -824,6 +824,8 @@ export class Zig extends CCompiler
                     NM.Log.warn("No .lib file found in the compilation", "momake.cToolchain")
                     return;
                 }
+                console.log(source.asOsPath())
+                console.log(destPath.asOsPath())
                 await source.copyTo(destPath.withExt(".lib"))
             }
             catch
