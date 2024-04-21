@@ -567,6 +567,16 @@ export class GCC extends CCompiler
             argv.push('-I' + includeDir)
         }
 
+        for (const source of compilation.sources)
+        {
+            argv.push(source)
+        }
+
+        for (const cflag of compilation.cflags)
+        {
+            argv.push(cflag)
+        }
+
         for (const libraryDir of compilation.libraryDirs)
         {
             argv.push('-L' + libraryDir)
@@ -582,16 +592,6 @@ export class GCC extends CCompiler
             {
                 argv.push('-l' + linkLib.name)
             }
-        }
-
-        for (const source of compilation.sources)
-        {
-            argv.push(source)
-        }
-
-        for (const cflag of compilation.cflags)
-        {
-            argv.push(cflag)
         }
 
         argv.push('-o')
@@ -759,6 +759,16 @@ export class Zig extends CCompiler
             argv.push('-I' + includeDir)
         }
 
+        for (const source of compilation.sources)
+        {
+            argv.push(source)
+        }
+
+        for (const cflag of compilation.cflags)
+        {
+            argv.push(cflag)
+        }
+
         for (const libraryDir of compilation.libraryDirs)
         {
             argv.push('-L' + libraryDir)
@@ -778,16 +788,6 @@ export class Zig extends CCompiler
                 }
                 argv.push('-l' + linkLib.name)
             }
-        }
-
-        for (const source of compilation.sources)
-        {
-            argv.push(source)
-        }
-
-        for (const cflag of compilation.cflags)
-        {
-            argv.push(cflag)
         }
 
         argv.push('-o')
