@@ -60,5 +60,5 @@ export abstract class Env
 
 
 export type IEnv<E> = {
-    [variable in keyof E]: E[variable]
+    [variable in keyof E]: string | undefined
 }

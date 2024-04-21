@@ -824,8 +824,6 @@ export class Zig extends CCompiler
                     NM.Log.warn("No .lib file found in the compilation", "momake.cToolchain")
                     return;
                 }
-                console.log(source.asOsPath())
-                console.log(destPath.asOsPath())
                 await source.copyTo(destPath.withExt(".lib"))
             }
             catch
@@ -840,28 +838,29 @@ function computeDest(dest: string, os: NM.OS, mode: 'shared' | 'exe')
 {
     if (mode == 'exe')
     {
-        if (os == 'windows' && !dest.toLowerCase().endsWith(".exe"))
+        if (os == 'windows')
         {
-
-            dest += ".exe"
+            if (!dest.toLowerCase().endsWith(".exe"))
+                dest += ".exe"
         }
     }
     else if (mode == 'shared')
     {
-        if (os == 'windows' && !dest.toLowerCase().endsWith(".dll"))
+        if (os == 'windows')
         {
 
-            dest += ".dll"
+            if (!dest.toLowerCase().endsWith(".dll"))
+                dest += ".dll"
         }
-        else if (os == 'linux' && !dest.toLowerCase().endsWith(".so"))
+        else if (os == 'linux')
         {
-
-            dest += ".so"
+            if (!dest.toLowerCase().endsWith(".so"))
+                dest += ".so"
         }
-        else if (os == 'macos' && !dest.toLowerCase().endsWith(".dylib"))
+        else if (os == 'macos')
         {
-
-            dest += ".dylib"
+            if (!dest.toLowerCase().endsWith(".dylib"))
+                dest += ".dylib"
         }
         else
         {

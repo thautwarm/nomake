@@ -31,8 +31,14 @@ export type BufferEncoding =
 export class Path
 {
     parts: string[];
-    constructor(p: string)
+    constructor(p: string | Path)
     {
+        if (p instanceof Path)
+        {
+            this.parts = [...p.parts];
+            return;
+        }
+
         this.parts = _toPosixPath(p).split("/");
         if (this.parts.length == 0)
         {
@@ -163,7 +169,13 @@ export class Path
         recursive?: boolean
     })
     {
-        const action = () => fs.promises.rm(this.asOsPath(), { recursive: args.recursive, force: true, maxRetries: args.maxRetries, retryDelay: args.retryDelay });
+        const action = () => fs.promises.rm(this.asOsPath(), {
+            // (Deno specific): shall be boolean
+            recursive: args.recursive ?? false,
+            force: true,
+            maxRetries: args.maxRetries ?? 0,
+            retryDelay: args.retryDelay ?? 100,
+        });
 
         const onError = args.onError;
         if (onError === 'ignore')
@@ -393,12 +405,11 @@ export class Path
         await Promise.all(tasks);
     }
 
-    glob(predicate: (arg: Path) => boolean | Promise<boolean>, options?: { recursive?: boolean }): AsyncGenerator<Path, void, void>;
+    fwalk(predicate: (arg: Path) => boolean | Promise<boolean>, options?: { includeDir?: boolean, recursive?: boolean }): AsyncGenerator<Path, void, void>;
 
-    glob(predicate: string, options?: { recursive?: boolean }): AsyncGenerator<Path, void, void>;
+    fwalk(predicate: string, options?: { includeDir?: boolean, recursive?: boolean }): AsyncGenerator<Path, void, void>;
 
-
-    async* glob(predicate: string | ((arg: Path) => boolean | Promise<boolean>), options?: { recursive?: boolean }): AsyncGenerator<Path, void, void>
+    async* fwalk(predicate: string | ((arg: Path) => boolean | Promise<boolean>), options?: { includeDir?: boolean, recursive?: boolean }): AsyncGenerator<Path, void, void>
     {
         if (typeof predicate === 'string')
         {
@@ -419,9 +430,12 @@ export class Path
         }
     }
 
-    private async* unsafeGlobDirectory(predicate: (arg: Path) => boolean | Promise<boolean>, options?: { recursive?: boolean }):
+    private async* unsafeGlobDirectory(predicate: (arg: Path) => boolean | Promise<boolean>, options?: { includeDir?: boolean, recursive?: boolean }):
         AsyncGenerator<Path, void, void>
     {
+        if (options?.includeDir && await predicate(this))
+            yield this;
+
         const files = await fs.promises.readdir(this.asOsPath());
         for (const file of files)
         {
@@ -436,5 +450,36 @@ export class Path
                 yield* item.unsafeGlobDirectory(predicate, options);
             }
         }
+    }
+
+    async chmod(mode: number): Promise<void>
+    {
+        await Deno.chmod(this.asOsPath(), mode);
+    }
+
+    relativeTo(target: Path | string): string
+    {
+        if (typeof target === 'string')
+        {
+            target = new Path(target);
+        }
+
+        return _path.relative(target.asOsPath(), this.asOsPath());
+    }
+
+    async* iterDir()
+    {
+        for await (const item of Deno.readDir(this.asOsPath()))
+            yield new Path(this.join(item.name));
+    }
+
+    async* entries()
+    {
+        for await (const item of Deno.readDir(this.asOsPath()))
+            yield {
+                name: item.name,
+                isDir: item.isDirectory,
+                isFile: item.isFile,
+            }
     }
 }

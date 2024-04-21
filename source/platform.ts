@@ -48,6 +48,20 @@ export class Platform
         }
     }
 
+    static pathsep(os?: OS): string
+    {
+        switch (os ?? this.currentOS)
+        {
+            case 'linux':
+            case 'macos':
+                return ':';
+            case 'windows':
+                return ';';
+            default:
+                throw new Error(`Unknown OS: ${os}`);
+        }
+    }
+
     static get currentOS(): OS
     {
 

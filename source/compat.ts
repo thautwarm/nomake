@@ -48,8 +48,32 @@ export function getEnv(name: string)
     return Deno.env.get(name);
 }
 
+export function removeUndefFields(o: { [key: string]: string | undefined })
+{
+    let noUndef = true;
+    for (const key of Object.keys(o))
+    {
+        if (o[key] === undefined)
+        {
+            noUndef = false;
+            break;
+        }
+    }
+    if (noUndef) return o as { [key: string]: string };
+
+    const newEnv: { [key: string]: string } = {}
+    for (const key of Object.keys(o))
+    {
+        if (o[key] !== undefined)
+        {
+            newEnv[key] = o[key] as string;
+        }
+    }
+    return newEnv;
+}
+
 export async function spawnCmd(
-    argv: string[], options?: { cwd?: string, env?: { [key: string]: string }, stderr?: "piped" | "inherit" | "null", stdout?: "piped" | "inherit" | "null" })
+    argv: string[], options?: { cwd?: string, env?: { [key: string]: string | undefined }, stderr?: "piped" | "inherit" | "null", stdout?: "piped" | "inherit" | "null" })
 {
     if (argv.length == 0)
     {
@@ -61,6 +85,10 @@ export async function spawnCmd(
     {
         throw new Error(`Command not found: ${argv[0]}`)
     }
+
+    // (Deno specific): deno env value cannot be undefined
+    const env = options?.env === undefined ? undefined : removeUndefFields(options?.env)
+
     const command = new Deno.Command(
         proc,
         {
@@ -68,7 +96,7 @@ export async function spawnCmd(
             stderr: options?.stderr,
             stdout: options?.stdout,
             cwd: options?.cwd,
-            env: options?.env,
+            env: env,
         }
     )
 

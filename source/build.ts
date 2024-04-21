@@ -1,8 +1,7 @@
-import { equalU8Array } from './utils.ts';
+import { equalU8Array, never as assertNever } from './utils.ts';
 import { Path } from './pathlib.ts';
 import { Log } from './log.ts';
 import { encodeBase64, decodeBase64, Md5Hasher, getEnv } from "./compat.ts";
-import { on } from "node:process";
 
 export class Encode
 {
@@ -35,17 +34,129 @@ function cacheTextToB64(s: string)
     return v
 }
 
-type Dep = string | Target
+
+export type BuildDependency = string | Target
+// deno-lint-ignore no-explicit-any
+export type BuildDependencySugar = AsyncGenerator<BuildDependency, any, any> | BuildDependency[] | BuildDependency
+export type BuildDependencies = BuildDependencySugar | { [key: string]: BuildDependencySugar }
+
+async function _collectDeps(deps: BuildDependencies): Promise<{ deps: string[], struct: string | string[] | Record<string, string | string[]> }>
+{
+    if (Array.isArray(deps))
+    {
+        const items = deps.map((dep) => typeof dep == 'string' ? dep : dep.name);
+        return {
+            deps: items,
+            struct: items,
+        }
+    }
+    if (typeof deps == 'string')
+        return {
+            deps: [deps],
+            struct: deps,
+        }
+
+    if (deps instanceof Target)
+        return { deps: [deps.name], struct: deps.name };
+
+    if (Symbol.asyncIterator in deps)
+    {
+        const r: string[] = [];
+        for await (const dep of deps)
+        {
+            if (typeof dep == 'string')
+                r.push(dep);
+            else
+                r.push(dep.name);
+        }
+        return {
+            deps: r,
+            struct: r,
+        }
+    }
+    const r: string[] = [];
+    const struct: Record<string, string[] | string> = {};
+    for (const key in deps)
+    {
+        const dep = deps[key];
+        if (typeof dep == 'string')
+        {
+            struct[key] = dep;
+            r.push(dep);
+        }
+        else if (dep instanceof Target)
+        {
+            r.push(dep.name);
+            struct[key] = dep.name;
+        }
+        else if (Symbol.asyncIterator in dep)
+        {
+            const seq: string[] = [];
+            for await (const d of dep)
+            {
+                const item = (typeof d == 'string') ? d : d.name;
+                r.push(item);
+                seq.push(item);
+            }
+            struct[key] = seq;
+        }
+        else if (Array.isArray(dep))
+        {
+            const seq: string[] = []
+            for (const d of dep)
+            {
+                const item = (typeof d == 'string') ? d : d.name;
+                r.push(item);
+                seq.push(item)
+            }
+            struct[key] = seq;
+        }
+        else
+        {
+            assertNever(dep);
+        }
+    }
+    return {
+        deps: r,
+        struct
+    }
+}
+
+type InferTarget<It extends BuildDependencySugar> =
+    It extends BuildDependency[] ? string[] :
+    It extends BuildDependency ? string :
+    // deno-lint-ignore no-explicit-any
+    It extends AsyncIterable<BuildDependency> ? string[] : any
+
+type InferRecord<It extends { [key: string]: BuildDependencySugar }> =
+    {
+        [key in keyof It]: InferTarget<It[key]>
+    }
+type InferTargets<It extends BuildDependencies> =
+    /**
+     * if `It = BuildDependency[]` -> string[]
+     * if `It = BuildDependency` -> string
+     * if `It = AsyncIterable<BuildDependency>` -> string[]
+     * if `It = { [key: string]: T }` -> { [key: string]: InferTargets<T> }
+     */
+    It extends BuildDependency[] ? string[] :
+    It extends BuildDependency ? string :
+    It extends AsyncIterable<BuildDependency> ? string[] :
+    It extends infer D extends { [key: string]: BuildDependencySugar } ? InferRecord<D> : never
+
+export type ResolvedTargets = string | string[] | Record<string, string | string[]>
+
 export class Target
 {
     name: string
-    build: (arg: { deps: string[], target: string }) => void | Promise<void>
+    build: (arg: { deps: ResolvedTargets, target: string }) => void | Promise<void>
     rebuild: 'always' | 'never' | 'onChanged'
-    private deps: Dep[] | (() => (Dep[] | Promise<Dep[]>))
+    private deps: BuildDependencies | (() => Promise<BuildDependencies> | BuildDependencies)
     virtual: boolean
     doc?: string
+    logError?: boolean
 
-    _evaluatedDeps: Dep[] | undefined
+    _evaluatedDeps: { deps: string[], struct: string | string[] | Record<string, string | string[]> } | undefined
 
     // handle the lazy evaluation of dependencies
     async evalDeps()
@@ -54,21 +165,22 @@ export class Target
             return this._evaluatedDeps;
         if (typeof this.deps == 'function')
         {
-            this._evaluatedDeps = await this.deps();
+            this._evaluatedDeps = await _collectDeps(await this.deps());
         }
         else
         {
-            this._evaluatedDeps = this.deps;
+            this._evaluatedDeps = await _collectDeps(this.deps);
         }
         return this._evaluatedDeps;
     }
 
     constructor(
         name: string,
-        build: ((arg: { deps: string[], target: string }) => void | Promise<void>),
+        build: (arg: { deps: BuildDependencies, target: string }) => void | Promise<void>,
         rebuild: 'always' | 'never' | 'onChanged',
-        deps: Dep[] | (() => (Dep[] | Promise<Dep[]>)),
-        virtual: boolean, doc?: string
+        deps: BuildDependencies | (() => Promise<BuildDependencies> | BuildDependencies),
+        virtual: boolean, doc?: string,
+        logError?: boolean
     )
     {
         this.name = name;
@@ -77,84 +189,98 @@ export class Target
         this.deps = deps;
         this.virtual = virtual;
         this.doc = doc;
+        this.logError = logError;
     }
 }
 
-export function target(
-    args: {
-        /**
-         * 构建目标的唯一标识符
-         *
-         * A unique identifier for the target.
-         *
-         * 用于调用、区分和缓存目标。
-         *
-         * Responsible for invoking, distinguishing and caching the target.
-         */
-        name: string,
-        /**
-         * 构建目标的依赖项。
-         *
-         * Dependencies of the target.
-         *
-         * 如果目标是实体文件 (artifacts)，则应该是文件路径 (string)。
-         *
-         * If the target is an artifact, it should be a file path (string).
-         */
-        deps?: Dep[] | (() => (Dep[] | Promise<Dep[]>)),
+export type TargetParams<It extends BuildDependencies> = {
+    /**
+     * 构建目标的唯一标识符
+     *
+     * A unique identifier for the target.
+     *
+     * 用于调用、区分和缓存目标。
+     *
+     * Responsible for invoking, distinguishing and caching the target.
+     */
+    name: string,
+    /**
+     * 构建目标的依赖项。
+     *
+     * Dependencies of the target.
+     *
+     * 如果目标是实体文件 (artifacts)，则应该是文件路径 (string)。
+     *
+     * If the target is an artifact, it should be a file path (string).
+     */
+    deps?: It | (() => (It | Promise<It>)),
 
-        /**
-         * 目标是否虚拟的（即没有实体文件，类比 Makefile 中的 PHONY）。
-         *
-         * If the target is virtual (i.e. no artifact, analogous to PHONY in Makefile).
-         */
-        virtual?: boolean,
+    /**
+     * 目标是否虚拟的（即没有实体文件，类比 Makefile 中的 PHONY）。
+     *
+     * If the target is virtual (i.e. no artifact, analogous to PHONY in Makefile).
+     */
+    virtual?: boolean,
 
-        /**
-         * 构建目标的文档。
-         *
-         * The documentation of the target.
-         */
-        doc?: string,
+    /**
+     * 构建目标的文档。
+     *
+     * The documentation of the target.
+     */
+    doc?: string,
 
-        /**
-         * 构建目标的逻辑。
-         *
-         * The build logic of the target.
-         */
-        build: (arg: { deps: string[], target: string }) => void | Promise<void>,
-        /**
-         * 构建目标的重构建模式。
-         *
-         * - 'always': 总是重构建目标。
-         *
-         * - 'never': 从不重构建目标。
-         *
-         * - 'onChanged': 如果任何依赖项已更改，则重构建目标。
-         *
-         * The rebuild mode of the target.
-         *
-         * - 'always': always rebuild the target.
-         *
-         * - 'never': never rebuild the target.
-         *
-         * - 'onChanged': rebuild the target if any of its dependencies has been changed.
-         *
-         * !!! PS1: 当未指定依赖项时，目标将始终重构建。
-         *
-         * !!! PS1: when the dependencies are not specified, the target will always be rebuilt.
-        *
-         * !!! PS2: 'onChanged' 不会跟踪目录内容的更改
-         *
-         * !!! PS2: 'onChanged' will not track the changes of directory contents
-         */
-        rebuild?: 'always' | 'never' | 'onChanged',
-    }
-): Target
+    /**
+     * 构建目标的逻辑。
+     *
+     * The build logic of the target.
+     */
+    build: (arg: { deps: InferTargets<It>, target: string }) => void | Promise<void>,
+    /**
+     * 构建目标的重构建模式。
+     *
+     * - 'always': 总是重构建目标。
+     *
+     * - 'never': 从不重构建目标。
+     *
+     * - 'onChanged': 如果任何依赖项已更改，则重构建目标。
+     *
+     * The rebuild mode of the target.
+     *
+     * - 'always': always rebuild the target.
+     *
+     * - 'never': never rebuild the target.
+     *
+     * - 'onChanged': rebuild the target if any of its dependencies has been changed.
+     *
+     * !!! PS1: 当未指定依赖项时，目标将始终重构建。
+     *
+     * !!! PS1: when the dependencies are not specified, the target will always be rebuilt.
+    *
+     * !!! PS2: 'onChanged' 不会跟踪目录内容的更改
+     *
+     * !!! PS2: 'onChanged' will not track the changes of directory contents
+     */
+    rebuild?: 'always' | 'never' | 'onChanged',
+
+    /**
+     * 当构建目标失败，是否记录错误（默认为 true）。
+     *
+     * Whether to log errors when building the target fails (default to true).
+     */
+    logError?: boolean
+}
+
+export function target<It extends BuildDependencies>(args: TargetParams<It>): Target
 {
     const rebuild = args.rebuild ?? (args.deps ? 'onChanged' : 'always');
-    const it = new Target(args.name, args.build, rebuild, args.deps ?? [], args.virtual ?? false, args.doc)
-    Commands.set(args.name, it);
+    const it = new Target(
+        args.name,
+        args.build as (arg: { deps: BuildDependencies, target: string }) => void | Promise<void>,
+        rebuild,
+        (args.deps ?? []) as BuildDependencies,
+        args.virtual ?? false, args.doc
+    )
+    _COMMANDS.set(args.name, it);
     return it;
 
 }
@@ -270,23 +396,6 @@ export class MakefileRunner
                 {
                     hgen.update("~file=")
                     const buf = await p.readBytes();
-                    if (buf.length > 2)
-                    {
-                        buf[buf.length / 2] = buf[buf.length / 2] ^ 0xa8;
-                    }
-                    else if (buf.length == 2)
-                    {
-                        buf[0] = buf[0] ^ 0xa9;
-                        buf[1] = buf[1] ^ 0xa9;
-                    }
-                    else if (buf.length == 1)
-                    {
-                        buf[0] = buf[0] ^ 0xa2;
-                    }
-                    else
-                    {
-                        hgen.update("~|empty")
-                    }
                     hgen.update(buf)
                 }
             }
@@ -323,13 +432,14 @@ export class MakefileRunner
         if (this.buildingTargets.has(targetName))
         {
             // if others are building this target, we just wait
-            let timeToWarn = 1000;
+            let timeToWarn = 2000;
             while (this.buildingTargets.has(targetName))
             {
                 await new Promise((resolve) => setTimeout(resolve, 100));
                 if (timeToWarn < 0)
                 {
                     Log.warn(`Waiting for ${targetName}`, 'NoMake.Build')
+                    timeToWarn = 2000
                 }
                 else
                 {
@@ -342,26 +452,29 @@ export class MakefileRunner
         this.buildingTargets.add(targetName);
         const proft = new Proft(targetName)
 
+        let target: Target | undefined;
         try
         {
 
-            const target = Commands.get(targetName)
+            target = _COMMANDS.get(targetName)
             let deps: string[] = []
+            let depStruct: ResolvedTargets = []
             if (target)
             {
-                deps = (await target.evalDeps()).map((dep) => typeof dep == 'string' ? dep : dep.name);
+                const depsInfo = await target.evalDeps();
+                deps = depsInfo.deps;
+                depStruct = depsInfo.struct;
                 const tasks = deps.map(dep => this.run(dep));
                 await Promise.all(tasks);
             }
 
             const isPhony = target?.virtual ?? false
-            if (isPhony && !target)
+            if (!target)
             {
                 if (await this.cwd.join(targetName).exists())
                     return;
 
-                Log.error(`No virtual target found for ${targetName}`)
-                fail();
+                Log.warn(`Virtual target is not registered or file not exists: ${targetName}`)
             }
 
 
@@ -404,7 +517,7 @@ export class MakefileRunner
                 }
             }
 
-            await this.runImpl(targetName, deps);
+            await this.runImpl(targetName, depStruct);
 
             newHash = await this.computeHash(
                 deps,
@@ -414,6 +527,14 @@ export class MakefileRunner
 
             await this.saveCacheHash(targetName, newHash)
         }
+        catch (e)
+        {
+            if (target?.logError ?? true)
+            {
+                Log.error(`Failed to build ${targetName}`, 'NoMake.Build')
+            }
+            throw e;
+        }
         finally
         {
             proft.dispose();
@@ -421,11 +542,11 @@ export class MakefileRunner
         }
     }
 
-    private async runImpl(targetName: string, deps: string[])
+    private async runImpl(targetName: string, struct: string | string[] | Record<string, string | string[]>)
     {
         try
         {
-            const target = Commands.get(targetName)
+            const target = _COMMANDS.get(targetName)
             const virtual = target?.virtual ?? false
 
             if (target && !virtual)
@@ -454,13 +575,21 @@ export class MakefileRunner
                     }
                 }
             }
+            else
+            {
+                if (!target)
+                {
+                    Log.error(`No virtual target found for ${targetName}`, `NoMake.Build`)
+                    fail();
+                }
+            }
 
             // this is a redundant test
             // to comfort the type checker
             if (target)
             {
                 await target.build({
-                    deps, target: targetName
+                    deps: struct, target: targetName
                 })
             }
         }
@@ -475,8 +604,14 @@ export class NonFatal extends Error
 { }
 
 const NOMAKE_PROF = Boolean(getEnv('NOMAKE_PROF'))
-const Commands: Map<string, Target> = new Map()
+const _COMMANDS: Map<string, Target> = new Map()
 const MakefileInstance = new MakefileRunner()
+type OptionDef = {
+    callback: (arg: { key: string, value: string }) => void
+    doc?: string
+}
+
+const _OPTIONS = new Map<string, OptionDef>();
 
 /**
  * 使用场景：
@@ -487,8 +622,10 @@ const MakefileInstance = new MakefileRunner()
  * 1. Indicate that a build task fails
  * 2. Non-fatal but need to interrupt the process (other tasks can respond according to the trial results)
  */
-export function fail(): never
+export function fail(msg?: string): never
 {
+    if (msg)
+        Log.error(msg)
     throw new NonFatal();
 }
 
@@ -526,20 +663,89 @@ export async function allowFailAsync<A>(trial: () => Promise<A>, onFailure: () =
     }
 }
 
+export function option(
+    key: string,
+    options:
+        // deno-lint-ignore no-explicit-any
+        (arg: { key: string, value: string }) => any | { callback: (arg: { key: string, value: string }) => any, doc?: string })
+{
+
+    const { callback, doc } = (typeof options == 'function') ? { callback: options, doc: undefined } : options
+    if (_OPTIONS.has(key))
+    {
+        throw new Error(`Option ${key} already registered`)
+    }
+    _OPTIONS.set(key, { callback, doc });
+}
+
+export function parseOptions(targets?: string[])
+{
+    targets ??= Deno.args;
+    function parseConf(conf: string)
+    {
+        const iD = conf.indexOf("-D");
+        const iEq = conf.indexOf("=");
+        if (iEq == -1)
+        {
+            const k = conf.slice(iD + 2);
+            return [k, 'ON']
+        }
+        const k = conf.slice(iD + 2, iEq);
+        const v = conf.slice(iEq + 1);
+        return [k, v];
+    }
+
+    for (const target of targets)
+    {
+        if (target.startsWith("-D"))
+        {
+            const [k, v] = parseConf(target);
+            const optionDef = _OPTIONS.get(k);
+            if (!optionDef)
+            {
+                Log.warn(`Option ${k} not registered`, 'NoMake.Options')
+                continue;
+            }
+            optionDef.callback({ key: k, value: v });
+        }
+    }
+}
 
 export async function makefile(targets?: string[])
 {
     targets ??= Deno.args;
+    function printHelp()
+    {
+        console.log("Targets:")
+        for (const [name, target] of _COMMANDS)
+        {
+            if (target.virtual)
+                console.log(`    [${name}] ${target.doc ?? "Undocumented"}`)
+        }
+
+        console.log("Options:")
+        for (const [key, option] of _OPTIONS)
+        {
+            console.log(`    [-D${key}=value] ${option.doc ?? "Undocumented"}`)
+        }
+        return;
+    }
+
+    if (!targets)
+    {
+        printHelp();
+        return;
+    }
+
     for (const target of targets)
     {
-        if (!target || target == "help")
+        if (target == "help")
         {
-            for (const [name, target] of Commands)
-            {
-                console.log(`[${name}] ${target.doc ?? "Undocumented"}`)
-            }
+            printHelp();
             return;
         }
+        // options
+        if (target.startsWith("-D")) continue;
         await MakefileInstance.run(target)
     }
 }

@@ -27,7 +27,7 @@ export type ShellExecOptions = {
      *
      * environment variables
      */
-    env?: Record<string, string>,
+    env?: Record<string, string | undefined>,
     /**
      * 超时时间，单位为毫秒，默认为 999999
      *
@@ -164,9 +164,6 @@ export class Shell
 
     static async run(argv: string[], options?: ShellExecOptions): Promise<ShellExecResult>
     {
-
-
-
         if (options?.printCmd)
         {
             Log.msg(`running: ${Shell.join(argv)}`, 'Shell')

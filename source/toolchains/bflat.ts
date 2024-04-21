@@ -28,6 +28,12 @@ export type LangVersion =
     | 'default'
     | 'latestmajor'
 
+export interface BflatBuildOptions
+{
+    buildDir?: string;
+    bflatExe?: string
+}
+
 export class Build
 {
     langVersion?: LangVersion
@@ -72,14 +78,25 @@ export class Build
         noExceptionMessages?: boolean,
     }
 
-    async run(output: string)
+    async run(output: string, option?: BflatBuildOptions)
     {
-        const bflat = await assureBflat();
-        const cmd = this.buildCommand(bflat, output);
+        const bflat = option?.bflatExe ?? await assureBflat();
+        const cmd = this.buildCommand(bflat, new NM.Path(output).abs().asOsPath());
+        const buildDir = option?.buildDir;
+        if (buildDir)
+        {
+            await new NM.Path(buildDir).mkdir(
+                {
+                    onError: 'ignore',
+                    parents: true
+                }
+            )
+        }
         await NM.Shell.runChecked(
             cmd,
             {
                 printCmd: true,
+                cwd: option?.buildDir
             }
         )
     }
@@ -130,11 +147,17 @@ export class Build
                 argv.push("build");
                 argv.push("--target");
                 argv.push("Exe");
+
+                argv.push("--arch");
+                argv.push(this.arch);
                 break;
             case 'shared':
                 argv.push("build");
                 argv.push("--target");
                 argv.push("Shared");
+
+                argv.push("--arch");
+                argv.push(this.arch);
                 break;
             case 'il':
                 argv.push("build-il");
@@ -144,9 +167,6 @@ export class Build
                 NM.Log.error(`Unknown build mode: ${this.mode}`);
                 NM.fail();
         }
-
-        argv.push("--arch");
-        argv.push(this.arch);
 
         if (this.verbose) argv.push("--verbose");
 
@@ -281,15 +301,17 @@ export class Build
                 if (this.optimize?.speed)
                     argv.push("-Ot");
             }
+        }
 
-
-            if (this.sourceFiles)
+        if (this.sourceFiles)
+        {
+            const duplicate = new Set<string>();
+            for (const file of this.sourceFiles)
             {
-                for (const file of this.sourceFiles)
-                {
-                    const p = new Path(file).abs().asOsPath()
-                    argv.push(p);
-                }
+                const p = new Path(file).abs().asOsPath()
+                if (duplicate.has(p)) continue;
+                argv.push(p);
+                duplicate.add(p);
             }
         }
 
