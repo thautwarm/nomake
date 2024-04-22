@@ -555,7 +555,6 @@ export class GCC extends CCompiler
 
         if (mode == 'shared')
         {
-
             argv.push('-fPIC')
             argv.push('-shared')
         }

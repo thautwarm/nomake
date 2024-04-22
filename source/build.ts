@@ -435,7 +435,7 @@ export class MakefileRunner
             let timeToWarn = 2000;
             while (this.buildingTargets.has(targetName))
             {
-                await new Promise((resolve) => setTimeout(resolve, 100));
+                await new Promise((resolve) => setTimeout(resolve, 64));
                 if (timeToWarn < 0)
                 {
                     Log.warn(`Waiting for ${targetName}`, 'NoMake.Build')
@@ -443,7 +443,7 @@ export class MakefileRunner
                 }
                 else
                 {
-                    timeToWarn -= 100;
+                    timeToWarn -= 64;
                 }
             }
             return;
