@@ -21,7 +21,6 @@ export class Encode
     }
 }
 
-
 const _CACHE_TEXT_TO_B64 = new Map<string, string>();
 function cacheTextToB64(s: string)
 {
@@ -33,7 +32,6 @@ function cacheTextToB64(s: string)
     }
     return v
 }
-
 
 export type BuildDependency = string | Target
 // deno-lint-ignore no-explicit-any
@@ -351,18 +349,14 @@ export class MakefileRunner
             const stat = await cacheFile.stat();
             if (stat.isFile())
             {
-                const encodedCache = await cacheFile.readBytes();
-                const hgen = new Md5Hasher()
-                hgen.update(encodedCache);
-                return hgen.digest()
+                const encodedCache = await cacheFile.readText();
+                return Encode.decodeB64Bytes(encodedCache);
             }
-            else if (stat.isDirectory())
-            {
-                return new TextEncoder().encode(targetSelf + '@' + stat.mtime.toUTCString());
-            }
+            return Encode.decodeB64Bytes('unknown//' + targetSelf)
         }
         catch
         {
+            console.log(`error when getting cache for ${targetSelf}[exists=${await cacheFile.exists()}]`)
             /* do nothing */
         }
 
@@ -389,11 +383,21 @@ export class MakefileRunner
             {
                 hgen.update("exist@")
                 hgen.update(cacheTextToB64(targetSelf))
-                if (await p.isFile())
+                if (!_COMMANDS.has(targetSelf))
                 {
-                    hgen.update("~file=")
-                    const buf = await p.readBytes();
-                    hgen.update(buf)
+                    try
+                    {
+                        const stat = await p.stat();
+                        hgen.update(`${stat.mtimeMs}:${stat.size}:${stat.isFile}`)
+                    }
+                    catch
+                    {
+                        hgen.update("~nonfile=")
+                    }
+                }
+                else
+                {
+                    hgen.update("~filetarget@")
                 }
             }
             else
@@ -466,20 +470,25 @@ export class MakefileRunner
             }
 
             const isPhony = target?.virtual ?? false
-            if (!target)
-            {
-                if (await this.cwd.join(targetName).exists())
-                    return;
-
-                Log.warn(`Virtual target is not registered or file not exists: ${targetName}`)
-            }
 
             let newHash = await this.computeHash(
                 deps,
                 targetName,
                 isPhony ?? false
             )
+
             const oldHash = await this.getCacheHash(targetName)
+
+            if (!target && !isPhony)
+            {
+                // resource
+                if (equalU8Array(newHash, oldHash))
+                    return;
+
+                await this.saveCacheHash(targetName, newHash)
+                return
+            }
+
 
             if (target)
             {

@@ -1,6 +1,6 @@
 #include <stdio.h>
 int main()
 {
-    printf("Hello Nomake 12!\n");
+    printf("Hello Nomake XX!\n");
     return 0;
 }

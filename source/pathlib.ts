@@ -385,7 +385,7 @@ export class Path
     {
         await dest.mkdir({ onError: 'ignore', parents: true });
         const files = await fs.promises.readdir(src.asOsPath());
-        const tasks = files.map(file =>
+        const tasks = files.map((file) =>
         {
             const srcFile = src.join(file);
             const destFile = dest.join(file);
