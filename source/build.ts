@@ -351,17 +351,14 @@ export class MakefileRunner
             const stat = await cacheFile.stat();
             if (stat.isFile())
             {
-                const encodedCache = await cacheFile.readText();
-                return Encode.decodeB64Bytes(encodedCache);
+                const encodedCache = await cacheFile.readBytes();
+                const hgen = new Md5Hasher()
+                hgen.update(encodedCache);
+                return hgen.digest()
             }
             else if (stat.isDirectory())
             {
-                const r = new TextEncoder().encode(stat.mtime.toUTCString());
-                for (let i = 0; i < r.length; i++)
-                {
-                    r[i] = r[i] ^ (i % 256);
-                }
-                return r;
+                return new TextEncoder().encode(targetSelf + '@' + stat.mtime.toUTCString());
             }
         }
         catch
@@ -476,7 +473,6 @@ export class MakefileRunner
 
                 Log.warn(`Virtual target is not registered or file not exists: ${targetName}`)
             }
-
 
             let newHash = await this.computeHash(
                 deps,

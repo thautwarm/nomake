@@ -12,7 +12,7 @@ export class Md5Hasher
     private md5: Md5
     constructor()
     {
-        this.md5 = new Md5();
+        this.md5 = new Md5()
     }
 
     update(data: string | Uint8Array)
