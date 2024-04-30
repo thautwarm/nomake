@@ -1,5 +1,6 @@
 .nomake_files
 build/
+tmp/
 
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore
 

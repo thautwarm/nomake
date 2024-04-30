@@ -4,6 +4,7 @@ export * from './source/pathlib.ts'
 export * from './source/platform.ts'
 export * from './source/shell.ts'
 export * from './source/env.ts'
+export * from './source/repo.ts'
 import * as Glob from "https://deno.land/std@0.223.0/fs/expand_glob.ts";
 import * as SemVer from 'https://deno.land/std@0.223.0/semver/mod.ts';
 
