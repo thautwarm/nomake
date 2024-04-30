@@ -1,10 +1,11 @@
 import { encodeBase64, decodeBase64 } from "https://deno.land/std@0.223.0/encoding/base64.ts";
+import { encodeBase32, decodeBase32 } from "https://deno.land/std@0.224.0/encoding/base32.ts";
 import { Md5 } from "https://deno.land/std@0.71.0/hash/md5.ts";
 import * as fs from "node:fs";
 import * as path from 'node:path';
 import * as os from 'node:os';
 
-export { encodeBase64, decodeBase64 }
+export { encodeBase64, decodeBase64, encodeBase32, decodeBase32 }
 export { fs, path, os }
 
 

@@ -385,22 +385,21 @@ export class Path
     {
         await dest.mkdir({ onError: 'ignore', parents: true });
         const files = await fs.promises.readdir(src.asOsPath());
-        const tasks = files.map((file) =>
+        const tasks = files.map(async (file) =>
         {
             const srcFile = src.join(file);
             const destFile = dest.join(file);
 
-            return srcFile.isFile().then((thisIsFile) =>
+            const thisIsFile = await srcFile.isFile();
+            if (thisIsFile)
             {
-                if (thisIsFile)
-                {
-                    return fs.promises.copyFile(srcFile.asOsPath(), destFile.asOsPath());
-                }
-                else
-                {
-                    return Path.copyContentDir(srcFile, destFile);
-                }
-            })
+                return fs.promises.copyFile(srcFile.asOsPath(), destFile.asOsPath());
+            }
+
+            else
+            {
+                return Path.copyContentDir(srcFile, destFile);
+            }
         })
         await Promise.all(tasks);
     }

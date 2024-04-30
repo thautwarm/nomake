@@ -1,5 +1,4 @@
-import { NM } from "../../example/hello/build.config.ts";
-import { Path } from "../pathlib.ts";
+import * as NM from '../../mod.ts';
 
 
 export async function assureBflat()
@@ -67,7 +66,7 @@ export class Build
         /**
          *  Disable support for reflection
          */
-        NoReflection?: boolean,
+        noReflection?: boolean,
         /**
          * Disable support for globalization
          */
@@ -190,7 +189,7 @@ export class Build
             for (const assembly of this.referencedILAssemblies)
             {
                 argv.push("-r");
-                argv.push(new Path(assembly).abs().asOsPath());
+                argv.push(new NM.Path(assembly).abs().asOsPath());
             }
         }
 
@@ -270,7 +269,7 @@ export class Build
 
             if (this.aotTrimming)
             {
-                if (this.aotTrimming.NoReflection)
+                if (this.aotTrimming.noReflection)
                     argv.push("--no-reflection");
                 if (this.aotTrimming.noGlobalization)
                     argv.push("--no-globalization");
@@ -308,7 +307,7 @@ export class Build
             const duplicate = new Set<string>();
             for (const file of this.sourceFiles)
             {
-                const p = new Path(file).abs().asOsPath()
+                const p = new NM.Path(file).abs().asOsPath()
                 if (duplicate.has(p)) continue;
                 argv.push(p);
                 duplicate.add(p);

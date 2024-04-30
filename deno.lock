@@ -98,6 +98,8 @@
     "https://deno.land/std@0.223.0/semver/try_parse.ts": "043204f1235243c3d02b66ffca2c37dc2941e417dbccaf6c3a15b476a33f0e24",
     "https://deno.land/std@0.223.0/semver/try_parse_range.ts": "cf1e2d489bbe9ed6185de551acdf708e23e0e1bc4be0958052dfef178f763eee",
     "https://deno.land/std@0.223.0/semver/types.ts": "9286e72b160e25856608f4bc5f08f8f5ccba54e6cdfc9aba8adee68a355c4b36",
+    "https://deno.land/std@0.224.0/encoding/_util.ts": "beacef316c1255da9bc8e95afb1fa56ed69baef919c88dc06ae6cb7a6103d376",
+    "https://deno.land/std@0.224.0/encoding/base32.ts": "02744a37df78abeaa0b3251e850bfee7c232f26fedc5a62b6c68cb2b99733984",
     "https://deno.land/std@0.71.0/encoding/hex.ts": "8dc1489e66b22fec26950c7a55391b12be0d9f9a80cbc7b422700cdff85cd2f7",
     "https://deno.land/std@0.71.0/hash/md5.ts": "ebc56f9d9dd45c72da17ceceb8bc345849198098f1fff8832176eac598576b42"
   }

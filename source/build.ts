@@ -1,33 +1,60 @@
 import { equalU8Array, never as assertNever } from './utils.ts';
 import { Path } from './pathlib.ts';
 import { Log } from './log.ts';
-import { encodeBase64, decodeBase64, Md5Hasher, getEnv } from "./compat.ts";
+import { encodeBase64, decodeBase64, encodeBase32, decodeBase32, Md5Hasher, getEnv } from "./compat.ts";
 
 export class Encode
 {
-    static encodeB64(str: string): string
+    // base64
+    static encodeB64(str: string | Uint8Array | ArrayBuffer): string
     {
         return encodeBase64(str);
     }
 
-    static decodeB64Bytes(str: string): Uint8Array
+    static decodeB64(str: string): Uint8Array
     {
         return decodeBase64(str);
     }
 
-    static encodeB64Bytes(bytes: Uint8Array): string
+    static encodeB64Path(str: string | Uint8Array | ArrayBuffer): string
     {
-        return encodeBase64(bytes);
+        return encodeBase64(str).replaceAll('/', '_')
+    }
+
+    static decodeB64Path(str: string): Uint8Array
+    {
+        return decodeBase64(str.replaceAll('_', '/'));
+    }
+
+    // base32
+    static encodeB32(str: string | Uint8Array | ArrayBuffer): string
+    {
+        return encodeBase32(str);
+    }
+
+    static decodeB32(str: string): Uint8Array
+    {
+        return decodeBase32(str);
+    }
+
+    static decodeUtf8(bytes: Uint8Array): string
+    {
+        return new TextDecoder('utf-8').decode(bytes);
+    }
+
+    static encodeUtf8(str: string): Uint8Array
+    {
+        return new TextEncoder().encode(str);
     }
 }
 
 const _CACHE_TEXT_TO_B64 = new Map<string, string>();
-function cacheTextToB64(s: string)
+function cacheTextToB32(s: string)
 {
     let v = _CACHE_TEXT_TO_B64.get(s)
     if (v === undefined)
     {
-        v = Encode.encodeB64(s)
+        v = Encode.encodeB32(s) // .replaceAll('/', '_')
         _CACHE_TEXT_TO_B64.set(s, v)
     }
     return v
@@ -343,20 +370,19 @@ export class MakefileRunner
 
     private async getCacheHash(targetSelf: string)
     {
-        const cacheFile = this.cacheTargetDir.join(cacheTextToB64(targetSelf));
+        const cacheFile = this.cacheTargetDir.join(cacheTextToB32(targetSelf));
         try
         {
             const stat = await cacheFile.stat();
             if (stat.isFile())
             {
                 const encodedCache = await cacheFile.readText();
-                return Encode.decodeB64Bytes(encodedCache);
+                return Encode.decodeB64(encodedCache);
             }
-            return Encode.decodeB64Bytes('unknown//' + targetSelf)
+            return Encode.encodeUtf8('unknown//' + targetSelf)
         }
         catch
         {
-            console.log(`error when getting cache for ${targetSelf}[exists=${await cacheFile.exists()}]`)
             /* do nothing */
         }
 
@@ -366,8 +392,8 @@ export class MakefileRunner
 
     private async saveCacheHash(targetSelf: string, hash: Uint8Array)
     {
-        const cacheFile = this.cacheTargetDir.join(cacheTextToB64(targetSelf));
-        await cacheFile.writeText(Encode.encodeB64Bytes(hash));
+        const cacheFile = this.cacheTargetDir.join(cacheTextToB32(targetSelf));
+        await cacheFile.writeText(Encode.encodeB64(hash));
     }
 
     private async computeHash(preReqs: string[], targetSelf: string, isPhony: boolean)
@@ -382,7 +408,7 @@ export class MakefileRunner
             if (await p.exists())
             {
                 hgen.update("exist@")
-                hgen.update(cacheTextToB64(targetSelf))
+                hgen.update(cacheTextToB32(targetSelf))
                 if (!_COMMANDS.has(targetSelf))
                 {
                     try
@@ -403,7 +429,7 @@ export class MakefileRunner
             else
             {
                 hgen.update("unknown@")
-                hgen.update(cacheTextToB64(targetSelf))
+                hgen.update(cacheTextToB32(targetSelf))
             }
         }
         else
@@ -456,7 +482,6 @@ export class MakefileRunner
         let target: Target | undefined;
         try
         {
-
             target = _COMMANDS.get(targetName)
             let deps: string[] = []
             let depStruct: ResolvedTargets = []
@@ -465,8 +490,18 @@ export class MakefileRunner
                 const depsInfo = await target.evalDeps();
                 deps = depsInfo.deps;
                 depStruct = depsInfo.struct;
-                const tasks = deps.map(dep => this.run(dep));
-                await Promise.all(tasks);
+                if (NO_PARALLEL)
+                {
+                    for (const dep of deps)
+                    {
+                        await this.run(dep);
+                    }
+                }
+                else
+                {
+                    const tasks = deps.map(dep => this.run(dep));
+                    await Promise.all(tasks);
+                }
             }
 
             const isPhony = target?.virtual ?? false
@@ -488,7 +523,6 @@ export class MakefileRunner
                 await this.saveCacheHash(targetName, newHash)
                 return
             }
-
 
             if (target)
             {
@@ -608,6 +642,7 @@ export class MakefileRunner
 export class NonFatal extends Error
 { }
 
+const NO_PARALLEL = Boolean(getEnv('NOMAKE_NO_PARALLEL'))
 const NOMAKE_PROF = Boolean(getEnv('NOMAKE_PROF'))
 const _COMMANDS: Map<string, Target> = new Map()
 const MakefileInstance = new MakefileRunner()
