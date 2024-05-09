@@ -45,7 +45,8 @@ NM.target(
   {
     name: "output.txt",
     deps: { file: "input.txt" },
-    async build({ deps, target }) {
+    async build({ deps, target })
+    {
       const input = await new NM.Path(deps.file).readText();
       await new NM.Path(target).writeText(
         "Hello, " + input,
@@ -60,7 +61,8 @@ NM.target(
     deps: ["output.txt"],
     // the top-level virtual target should be always rebuilt
     rebuild: "always",
-    async build() {
+    async build()
+    {
       console.log("Build finished!");
     },
   },
