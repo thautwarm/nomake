@@ -19,46 +19,49 @@
  */
 export abstract class Env
 {
-    static create<E extends Record<string, string | undefined>>(defaults: E): IEnv<E>
+  static create<E extends Record<string, string | undefined>>(
+    defaults: E,
+  ): IEnv<E>
+  {
+    const o = {};
+    for (const k in defaults)
     {
-        const o = {};
-        for (const k in defaults)
+      // if the environment variable is not set and the default value
+      // is not undefined, set the default value
+      if (!Deno.env.has(k) && defaults[k] !== undefined)
+      {
+        Deno.env.set(k, defaults[k]!);
+      }
+
+      // define getter and setter for each environment variable
+      Object.defineProperty(
+        o,
+        k,
         {
-            // if the environment variable is not set and the default value
-            // is not undefined, set the default value
-            if (!Deno.env.has(k) && defaults[k] !== undefined)
+          get()
+          {
+            return Deno.env.get(k) ?? defaults[k];
+          },
+          set: (v: string | undefined) =>
+          {
+            // empty string "" is not treated
+            // as undefined
+            if (v !== undefined)
             {
-                Deno.env.set(k, defaults[k]!)
+              Deno.env.set(k, v);
+            } else
+            {
+              Deno.env.delete(k);
             }
-
-            // define getter and setter for each environment variable
-            Object.defineProperty(
-                o, k, {
-                get()
-                {
-                    return Deno.env.get(k) ?? defaults[k]
-                },
-                set: (v: string | undefined) =>
-                {
-                    // empty string "" is not treated
-                    // as undefined
-                    if (v !== undefined)
-                    {
-                        Deno.env.set(k, v)
-                    }
-                    else
-                    {
-                        Deno.env.delete(k)
-                    }
-                }
-            })
-        }
-
-        return o as IEnv<E>;
+          },
+        },
+      );
     }
-}
 
+    return o as IEnv<E>;
+  }
+}
 
 export type IEnv<E> = {
-    [variable in keyof E]: string | undefined
-}
+  [variable in keyof E]: string | undefined;
+};

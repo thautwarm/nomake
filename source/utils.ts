@@ -1,6 +1,5 @@
 import { fs, readFile, tryAutoDecode } from "./compat.ts";
 
-
 /**
  * 自动读取文件并返回内容为字符串，不需要指定编码。
  *
@@ -12,148 +11,138 @@ import { fs, readFile, tryAutoDecode } from "./compat.ts";
  */
 export async function autoReadFile(path: string)
 {
-    try
-    {
-        return await fs.promises.readFile(path, 'utf-8');
-    }
-    catch
-    {
-        /* ignore */
-    }
+  try
+  {
+    return await fs.promises.readFile(path, "utf-8");
+  }
+  catch
+  {
+    /* ignore */
+  }
 
-    const bytes = await readFile(path);
+  const bytes = await readFile(path);
 
-    const res = tryAutoDecode(bytes);
-    if (res === undefined)
-        throw new Error(`Failed to read file: ${path}`);
-    return res;
+  const res = tryAutoDecode(bytes);
+  if (res === undefined)
+  {
+    throw new Error(`Failed to read file: ${path}`);
+  }
+  return res;
 }
 
 export function forAll<T>(xs: Iterable<T>, pred: (x: T) => boolean): boolean
 {
-    for (const x of xs)
+  for (const x of xs)
+  {
+    if (!pred(x))
     {
-        if (!pred(x))
-        {
-            return false;
-        }
+      return false;
     }
-    return true;
+  }
+  return true;
 }
 
 export function equalU8Array(a: Uint8Array, b: Uint8Array): boolean
 {
-    if (a.length !== b.length)
+  if (a.length !== b.length)
+  {
+    return false;
+  }
+  for (let i = 0; i < a.length; i++)
+  {
+    if (a[i] !== b[i])
     {
-        return false;
+      return false;
     }
-    for (let i = 0; i < a.length; i++)
-    {
-        if (a[i] !== b[i])
-        {
-            return false;
-        }
-    }
-    return true;
+  }
+  return true;
 }
-
-
 
 export interface IDisposal
 {
-    dispose(): void;
+  dispose(): void;
 }
 
 export function use<T>(
-    disposals: IDisposal | IDisposal[],
-    f: () => T
+  disposals: IDisposal | IDisposal[],
+  f: () => T,
 )
 {
-    if (Array.isArray(disposals))
+  if (Array.isArray(disposals))
+  {
+    try
     {
+      return f();
+    } finally
+    {
+      for (const disposal of disposals)
+      {
         try
         {
-            return f()
-        }
-        finally
+          disposal.dispose();
+        } catch (e)
         {
-            for (const disposal of disposals)
-            {
-                try
-                {
-                    disposal.dispose();
-                }
-                catch (e)
-                {
-                    console.log(e);
-                }
-            }
+          console.log(e);
         }
+      }
     }
-    else
+  } else
+  {
+    try
     {
-        try
-        {
-            return f()
-        }
-        finally
-        {
-            try
-            {
-                disposals.dispose();
-            }
-            catch (e)
-            {
-                console.log(e);
-            }
-        }
+      return f();
+    } finally
+    {
+      try
+      {
+        disposals.dispose();
+      } catch (e)
+      {
+        console.log(e);
+      }
     }
+  }
 }
 
 export async function useAsync<T>(
-    disposals: IDisposal | IDisposal[],
-    f: () => Promise<T>
+  disposals: IDisposal | IDisposal[],
+  f: () => Promise<T>,
 )
 {
-    if (Array.isArray(disposals))
+  if (Array.isArray(disposals))
+  {
+    try
     {
+      return await f();
+    } finally
+    {
+      for (const disposal of disposals)
+      {
         try
         {
-            return await f();
-        }
-        finally
+          disposal.dispose();
+        } catch (e)
         {
-            for (const disposal of disposals)
-            {
-                try
-                {
-                    disposal.dispose();
-                }
-                catch (e)
-                {
-                    console.log(e);
-                }
-            }
+          console.log(e);
         }
+      }
     }
-    else
+  } else
+  {
+    try
     {
-        try
-        {
-            return await f();
-        }
-        finally
-        {
-            try
-            {
-                disposals.dispose();
-            }
-            catch (e_1)
-            {
-                console.log(e_1);
-            }
-        }
+      return await f();
+    } finally
+    {
+      try
+      {
+        disposals.dispose();
+      } catch (e_1)
+      {
+        console.log(e_1);
+      }
     }
+  }
 }
 
 /**
@@ -166,10 +155,10 @@ export async function useAsync<T>(
  */
 export function exit(code: number): never
 {
-    Deno.exit(code);
+  Deno.exit(code);
 }
 
 export function never(x: never): never
 {
-    throw new Error(`Unreachable: ${x}`);
+  throw new Error(`Unreachable: ${x}`);
 }

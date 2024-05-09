@@ -1,96 +1,85 @@
-[![Chinese Doc](https://img.shields.io/badge/中文文档-latest-orange.svg)](./README.zh_CN.md)
+# NoMake: Type-safe, Multi-lingual and Distributed Build System
 
-# NoMake: Static, Multi-lingual and Distributed Build System
+NoMake is a build system that supports multiple programming languages, static
+type checking, intellisense and distributed building.
 
-NoMake is a build system that supports multiple programming languages, static type checking, intellisense and distributed building.
+1. [Documentation](https://thautwarm.github.io/Site-33/3-software/nomake/)
+2. Installation: download the latest release from
+   [GitHub Releases](https://github.com/thautwarm/nomake/releases)
+3. Examples:
+   1. [NoMake Starter](https://github.com/thautwarm/nomake/blob/main/startup/build.ts):
+      NoMake Release built by NoMake itself
+   2. [CToolchain](https://github.com/thautwarm/nomake/blob/main/example/ctoolchain/build.ts):
+      C/C++ example using Zig/GCC
+   3. [C# Native AOT](https://github.com/thautwarm/nomake/tree/main/example/bflatproj):
+      C# cross-platform native compilation using Bflat (no .NET SDK and Visual
+      Studio)
+   4. [Git Repository Archive](https://github.com/thautwarm/nomake/blob/main/example/repo/build.ts):
+      Target-based Git repo clone
+   5. [HTTP Archive](https://github.com/thautwarm/nomake/blob/main/example/http_archive/build.ts):
+      Target-based HTTP archive
 
-## Get Started
+## Quick Start
 
-1. Install [Deno](https://deno.com/)
-2. Initialize Deno in the project root directory using `deno init` and create a file named `build.ts` with the following content:
+[Download](https://github.com/thautwarm/nomake/releases) and unzip binaries into
+your PATH.
+
+For Unix-like systems, you might use `chmod -x nomake deno` to make them
+executable.
+
+Then your create a `build.ts` file in your project root:
 
 ```typescript
-// See nomake/example/welcome for the details
-// Future versions will use branch tags to specify versions
-import * as NM from 'https://github.com/thautwarm/nomake/raw/main/mod.ts'
-export { NM }
+/* filename: build.ts */
 
-const cBuild = NM.target({
-    name: 'dist/windows-x64/hello.exe',
-    deps: ['hello.c'], // or () => ['hello.c'] for lazy deps
-    async build({ target })
-    {
-        const C = new NM.CC.Compilation()
-        C.sources.push("hello.c")
+import * as NM from "https://github.com/thautwarm/nomake/raw/v0.1.4/mod.ts";
 
-        await assureDir(target)
-        // cross compilation to windows no matter what the host platform is
-        await C.compileExe(target, new NM.CC.Zig({ os: 'windows' }))
-    }
-})
+// define options
+NM.option("legacy", ({ value }) => {/* do stuff with value */});
 
-const csBuild = NM.target(
-    {
-        name: 'dist/linux-x64/libhello.so',
-        deps: ['hello.cs'],
-        async build({ target })
-        {
-            const build = new NM.Bflat.Build();
-            build.mode = 'shared';
-            build.os = 'linux';
-            await assureDir(target)
-            await build.run(target)
-        }
-    }
-)
+// parse options
+NM.parseOptions();
+
+// define one or more targets
+NM.target(
+  {
+    name: "output.txt",
+    deps: { file: "input.txt" },
+    async build({ deps, target }) {
+      const input = await new NM.Path(deps.file).readText();
+      await new NM.Path(target).writeText(
+        "Hello, " + input,
+      );
+    },
+  },
+);
 
 NM.target(
-    {
-        name: 'build',
-        deps: [cBuild, csBuild],
-        build: () => NM.Log.ok('Build Complete')
-    }
-)
+  {
+    name: "build",
+    deps: ["output.txt"],
+    // the top-level virtual target should be always rebuilt
+    rebuild: "always",
+    async build() {
+      console.log("Build finished!");
+    },
+  },
+);
 
-const assureDir = (target: string) =>
-    new NM.Path(target)
-          .parent.mkdir({ parents: true, onError: 'existOk' })
-
-NM.makefile()
+// trigger the build process
+await NM.makefile();
 ```
 
-3. Run `deno run -A build.ts build` to build the project.
+If you create a `input.txt` file in the same directory, you can run
+`nomake output.txt` in the terminal to build `output.txt`.
 
-## Motivation
+Running `nomake build`, the file `output.txt` will be rebuilt only if you change
+`input.txt` again.
 
-0. No mandatory introduction of the specialized knowledge in build system (Avoid: Makefile)
-1. Reduce the technical difficulty and learning curve of building and publishing multi-lingual monorepos (Avoid: Makefile)
-2. Prefer a build system covered by static checking and intellisense (Avoid: Makefile, Bazel)
-3. Distributed building and security concerns (Avoid: Makefile; Prefer: Deno)
-4. Separate build scripts across the project without affecting static checking and intellisense (Avoid: Bazel, Python)
-5.  Avoid pursuing excessive reference transparency for environment variables (Avoid: Makefile)
-6.  Import custom rule sets via direct urls of code hosting platforms (Avoid: NodeJS/Bun)
+You could invoke the command `nomake help` to show available targets and
+options.
 
-How to support distributed building:
-1. If the build server does not install any additional tools: The build logic can packaged as an executable file for the target operating system/architecture using Deno. Running the executable on the server can build any target.
+## License
 
-2. If the build server installs Deno: Pull the code, call `deno run build.ts` to build any target.
-
-## NoMake Features
-
-1. Only basic skills of TypeScript programming is needed.
-2. Unopinionated but powerful: fewer pre-set building concepts, but rich integration of tools for common building concepts.
-3. NoMake itself is a Deno library containing basic rule sets for building and can be directly imported via URL.
-4. Users can publish their own rule sets on GitHub or similar platforms to facilitate importing by other users.
-
-## NoMake Functions
-
-- [x] `NM.Platform`: Platform-related operations (operating system, architecture, etc)
-- [x] `NM.Env`: modern operations on environment variables
-- [x] `NM.Path`: modern File/path operations  (similar to Python `pathlib`)
-- [ ] `NM.Repo`: Repository operations
-- [x] (partial) `NM.Log`: Logging operations
-- [x] (partial) `NM.CC`: C/C++ toolchain operations
-- [x] `NM.Bflat`: Bflat toolchain integration to support C# AOT projects
-- [ ] `NM.Julia`: Julia toolchain operations
-- [ ] Out-of-the-box distributed building capabilities
+NoMake is licensed under the MIT License. See [LICENSE](./LICENSE) for more
+information.

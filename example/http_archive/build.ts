@@ -1,22 +1,29 @@
 import * as NM from "../../mod.ts";
+import { Config, targetPlatformIdentifier } from "./build.config.ts";
 
-const repo1 = NM.repoTarget(
-    {
-        repo: 'raysan5/raylib',
-    }
-)
+const denoReleaseName = {
+    "macos-x64": "deno-x86_64-apple-darwin.zip",
+    "macos-arm64": "deno-aarch64-apple-darwin.zip",
+    "linux-x64": "deno-x86_64-unknown-linux-gnu.zip",
+    "linux-arm64": "deno-aarch64-unknown-linux-gnu.zip",
+    "windows-x64": "deno-x86_64-pc-windows-msvc.zip",
+}[targetPlatformIdentifier];
+
+const denoArchive = NM.webArchive(
+    `https://github.com/denoland/deno/releases/download/${Config.denoVersion}/${denoReleaseName}`,
+    { suffixRespectUrl: true },
+);
 
 NM.target(
     {
-        name: 'build',
-        deps: [repo1],
-        rebuild: 'always',
+        name: "install-deno",
+        virtual: true,
+        deps: [denoArchive],
         build({ deps })
         {
             const path = deps[0];
-            NM.Log.info(`Cloning raylib at ${path}`, 'build')
-        }
-    }
-)
+            NM.Log.info(`Installing deno at ${path}`, "install-deno");
+        },
+    });
 
-NM.makefile()
+await NM.makefile();
