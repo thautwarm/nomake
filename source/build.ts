@@ -707,7 +707,7 @@ export function option(
     key: string,
     options:
         // deno-lint-ignore no-explicit-any
-        (arg: { key: string, value: string }) => any | { callback: (arg: { key: string, value: string }) => any, doc?: string })
+        ((arg: { key: string, value: string }) => any) | { callback: (arg: { key: string, value: string }) => any, doc?: string })
 {
 
     const { callback, doc } = (typeof options == 'function') ? { callback: options, doc: undefined } : options

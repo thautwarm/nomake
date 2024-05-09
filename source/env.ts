@@ -10,10 +10,10 @@
  *    HOST: "localhost"
  * })
  *
- * console.log(Deno.env.get("POST")) // "8080"
+ * console.log(Deno.env.get("PORT")) // "8080"
  * console.log(env.PORT) // "8080"
  * env.PORT = "";
- * console.log(Deno.env.get("POST")) // ""
+ * console.log(Deno.env.get("PORT")) // ""
  * console.log(env.PORT) // ""
  * ```
  */
