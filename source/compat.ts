@@ -9,6 +9,7 @@ import
   encodeBase32,
 } from "https://deno.land/std@0.224.0/encoding/base32.ts";
 import { Md5 } from "https://deno.land/std@0.71.0/hash/md5.ts";
+// @deno-types="npm:@types/node"
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";

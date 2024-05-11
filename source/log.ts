@@ -1,4 +1,4 @@
-// TODO: Implement transports
+import { Path } from './pathlib.ts';
 
 export interface ILogger
 {
@@ -68,26 +68,158 @@ function defaultMessage(level: string, message: string, title?: string)
   console.log(`${timestamp} ${mainMsg}`);
 }
 
+
+export type LogLevel = "ok" | "info" | "error" | "warn" | "normal" | "verbose";
+
 export interface Transport
 {
-  filename: string;
-  level?: "ok" | "info" | "error" | "warn" | "normal" | "verbose";
+  severity: Record<LogLevel, number>
+  level: LogLevel
+  log(msg: string, level: LogLevel, title?: string): void;
+}
+
+class FileTransport implements Transport
+{
+  severity: Record<LogLevel, number>;
+  level: LogLevel;
+  levelAsNum: number;
+  filepath: Path;
+  static writingTasks: [Path, string][] = []
+  static writingLock: boolean = false;
+
+  constructor(filepath: string | Path, severity: Record<LogLevel, number>, level: LogLevel)
+  {
+    if (!(filepath instanceof Path))
+    {
+      filepath = new Path(filepath);
+    }
+
+    this.severity = severity
+    this.level = level
+    this.levelAsNum = severity[level] ?? 2
+    this.filepath = filepath
+  }
+
+  log(msg: string, level: LogLevel, title?: string | undefined): void
+  {
+    title ??= "Log";
+    const levelAsNum = this.severity[level] ?? 2;
+    if (levelAsNum < this.levelAsNum)
+    {
+      return;
+    }
+    const mainMsg = `${new Date().toDateString()} [${title}]: ${msg}\n`;
+    const file = this.filepath;
+    try
+    {
+
+      Deno.writeTextFileSync(file.asOsPath(), mainMsg, { append: true });
+    }
+    catch
+    {
+      defaultMessage('error', `Failed to write to file ${file}`, title)
+    }
+  }
+}
+
+class ConsoleTransport implements Transport
+{
+  level: LogLevel;
+  levelAsNum: number;
+  _severity?: Record<LogLevel, number>;
+
+  get severity()
+  {
+    this._severity ??= Object.assign({}, defaultLogSeverity);
+    return this._severity;
+  }
+
+  constructor(level: LogLevel)
+  {
+    this.level = level
+    this.levelAsNum = defaultLogSeverity[level] ?? defaultLogSeverity.normal;
+  }
+
+  log(msg: string, level: LogLevel, title?: string | undefined): void
+  {
+    title ??= "Log";
+    const levelAsNum = this.severity[level] ?? 2;
+    if (levelAsNum < this.levelAsNum)
+    {
+      return;
+    }
+    defaultMessage(level, msg, title);
+  }
+}
+
+function getDefaultLogLevel(): LogLevel
+{
+  const level = Deno.env.get("NOMAKE_LOG_LEVEL");
+  if (!level) return "normal";
+  switch (level.toLocaleLowerCase())
+  {
+    case "ok":
+      return "ok";
+    case "info":
+      return "info";
+    case "error":
+      return "error";
+    case "warn":
+      return "warn";
+    case "verbose":
+      return "verbose";
+    default:
+      defaultMessage("warn", `Invalid log level: ${level}. Using \`normal\` instead.`);
+      return "normal";
+  }
+}
+
+export interface TransportParams
+{
+  severity?: Record<LogLevel, number>;
+  level?: LogLevel;
+}
+
+export type TransportLike = Transport | string | Path
+
+const defaultLogLevel = getDefaultLogLevel();
+const defaultLogSeverity: Record<LogLevel, number> = {
+  ok: 6,
+  error: 5,
+  warn: 4,
+  info: 3,
+  normal: 2,
+  verbose: 1,
 }
 
 export class Log
 {
-  static title?: string;
-  static addTransport(transport: Transport): ILogger
+  private static title?: string;
+  private static transports: Set<Transport> = new Set([new ConsoleTransport(defaultLogLevel)]);
+  static DefaultLogSeverity: Record<LogLevel, number> = defaultLogSeverity
+
+  static addTransport(transport: Transport | string | Path, options?: TransportParams): Transport
   {
-    Log.warn("Transport not implemented yet");
-    return {
-      level: transport.level ?? "normal",
-    };
+    if (typeof transport === 'string')
+    {
+      transport = new Path(transport)
+    }
+
+    if (transport instanceof Path)
+    {
+      transport = new FileTransport(
+        transport,
+        options?.severity ?? Log.DefaultLogSeverity,
+        options?.level ?? defaultLogLevel
+      );
+    }
+    Log.transports.add(transport);
+    return transport;
   }
 
-  static rmTransport(_: ILogger)
+  static rmTransport(it: Transport)
   {
-    Log.warn("Transport not implemented yet");
+    Log.transports.delete(it);
   }
 
   static group(title: string)
@@ -101,16 +233,16 @@ export class Log
   }
 
   static async useAsync<T>(
-    targets: Transport | Transport[],
+    targets: TransportLike | TransportLike[],
     f: () => Promise<T>,
   )
   {
     if (Array.isArray(targets))
     {
-      const loggers: ILogger[] = [];
+      const loggers: Transport[] = [];
       for (const target of targets)
       {
-        loggers.push(Log.addTransport(target) as ILogger);
+        loggers.push(Log.addTransport(target));
       }
 
       try
@@ -139,36 +271,54 @@ export class Log
   static msg(msg: string, title?: string)
   {
     title ??= Log.title;
-    defaultMessage("normal", msg, title);
+    for (const transport of Log.transports)
+    {
+      transport.log(msg, "normal", title);
+    }
   }
 
   static ok(msg: string, title?: string)
   {
     title ??= Log.title;
-    defaultMessage("ok", msg, title);
+    for (const transport of Log.transports)
+    {
+      transport.log(msg, "ok", title);
+    }
   }
 
   static info(msg: string, title?: string)
   {
     title ??= Log.title;
-    defaultMessage("info", msg, title);
+    for (const transport of Log.transports)
+    {
+      transport.log(msg, "info", title);
+    }
   }
 
   static error(msg: string, title?: string)
   {
     title ??= Log.title;
-    defaultMessage("error", msg, title);
+    for (const transport of Log.transports)
+    {
+      transport.log(msg, "error", title);
+    }
   }
 
   static warn(msg: string, title?: string)
   {
     title ??= Log.title;
-    defaultMessage("warn", msg, title);
+    for (const transport of Log.transports)
+    {
+      transport.log(msg, "warn", title);
+    }
   }
 
   static verbose(msg: string, title?: string)
   {
     title ??= Log.title;
-    defaultMessage("verbose", msg, title);
+    for (const transport of Log.transports)
+    {
+      transport.log(msg, "verbose", title);
+    }
   }
 }

@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { fs, getCwd, os, path as _path } from "./compat.ts";
+import { Log } from "./log.ts";
 
 function _toPosixPath(path: string): string
 {
@@ -255,15 +256,23 @@ export class Path
     return Deno.readFile(this.asOsPath());
   }
 
-  writeText(data: string, encoding?: BufferEncoding): Promise<void>
+  async writeText(data: string, options?: BufferEncoding | Deno.WriteFileOptions & { encoding?: BufferEncoding }): Promise<void>
   {
-    const encodingReal = encoding ?? "utf-8";
-    return fs.promises.writeFile(this.asOsPath(), data, encodingReal);
+    if (typeof options === 'string')
+    {
+      options = { encoding: options }
+    }
+
+    const encoding = options?.encoding ?? "utf-8";
+    const newOpts = Object.assign({}, options)
+    delete newOpts.encoding;
+    if (encoding !== 'utf-8') Log.warn(`Encoding ${encoding} other than utf-8 is not supported.`)
+    await Deno.writeFile(this.asOsPath(), new TextEncoder().encode(data), newOpts);
   }
 
-  writeBytes(data: Uint8Array): Promise<void>
+  async writeBytes(data: Uint8Array, options?: Deno.WriteFileOptions): Promise<void>
   {
-    return Deno.writeFile(this.asOsPath(), data);
+    await Deno.writeFile(this.asOsPath(), data, options);
   }
 
   async mkdir(

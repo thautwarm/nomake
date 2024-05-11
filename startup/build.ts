@@ -111,6 +111,7 @@ NM.target(
         virtual: true,
         async build()
         {
+            NM.Log.msg("Cleaning up");
             await new NM.Path("tmp").rm(
                 {
                     onError: "ignore",
