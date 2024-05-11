@@ -84,8 +84,6 @@ class FileTransport implements Transport
   level: LogLevel;
   levelAsNum: number;
   filepath: Path;
-  static writingTasks: [Path, string][] = []
-  static writingLock: boolean = false;
 
   constructor(filepath: string | Path, severity: Record<LogLevel, number>, level: LogLevel)
   {
