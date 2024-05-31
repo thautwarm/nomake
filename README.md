@@ -24,7 +24,7 @@ type checking, intellisense and distributed building.
 [Download](https://github.com/thautwarm/nomake/releases) and unzip binaries into
 your PATH.
 
-For Unix-like systems, you might use `chmod -x nomake deno` to make them
+For Unix-like systems, you might use `chmod +x nomake deno` to make them
 executable.
 
 Then your create a `build.ts` file in your project root:
