@@ -1,4 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
+import { Glob } from "../deps.ts";
 import { fs, getCwd, os, path as _path } from "./compat.ts";
 import { Log } from "./log.ts";
 
@@ -498,5 +499,50 @@ export class Path
         isFile: item.isFile,
       };
     }
+  }
+
+  async* glob(pattern: string, options?:
+    {
+      absolute?: boolean,
+      exclude?: string[],
+      includeDirs?: boolean,
+      followSymlinks?: boolean
+    })
+  {
+    const root = this.asOsPath();
+    const globOptions = {
+      root,
+      exclude: options?.exclude,
+      includeDirs: options?.includeDirs ?? true,
+      followSymlinks: options?.followSymlinks ?? false,
+    };
+    if (options?.absolute)
+    {
+      for await (const each of Glob.expandGlob(pattern, globOptions))
+      {
+        yield each.path;
+      }
+    }
+    else
+    {
+      for await (const each of Glob.expandGlob(pattern, globOptions))
+      {
+        const p = each.path;
+        yield _path.relative(root, p).replaceAll("\\", "/");
+      }
+    }
+  }
+
+  static async* glob(pattern: string, options?:
+    {
+      root?: string,
+      absolute?: boolean,
+      exclude?: string[],
+      includeDirs?: boolean,
+      followSymlinks?: boolean
+    })
+  {
+    const root = options?.root ?? getCwd();
+    yield* new Path(root).glob(pattern, options);
   }
 }

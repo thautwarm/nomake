@@ -1,12 +1,13 @@
-import { BuildDependencies, target, TargetParams } from "./build.ts";
+import { BuildDependencies, TargetParams, target, fail } from "./build.ts";
 import { Log } from "./log.ts";
 import { Shell } from "./shell.ts";
 import { Path } from "./pathlib.ts";
 
 export interface GitRepoOptions
 {
-  kind: "https" | "ssh";
-  host: "github" | "gitlab" | "bitbucket" | CustomGitHost;
+  kind?: "https" | "ssh";
+  host?: "github" | "gitlab" | "bitbucket" | CustomGitHost;
+  branch?: string;
   port?: number;
   httpsAuth?: { user: string; passwd: string };
 }
@@ -92,7 +93,22 @@ export abstract class Repo
       commands.push(target);
     }
 
-    await Shell.runChecked(commands, { printCmd: true });
+    await Shell.runChecked(commands, { printCmd: true, logError: true });
+
+    const branch = options?.branch;
+    if (branch)
+    {
+      const cwd = target ? new Path(target).asOsPath() : findRepoDir(repo)
+
+      await Shell.runChecked(
+        ["git", "checkout", branch],
+        {
+          cwd,
+          printCmd: true,
+          logError: true,
+        },
+      );
+    }
   }
 }
 
@@ -239,4 +255,16 @@ export function repoTarget<It extends BuildDependencies>(
       },
     },
   );
+}
+
+function findRepoDir(repo: string)
+{
+  const repoName = repo.split("/")[1];
+  if (!repoName)
+  {
+    Log.error(`Repo name is invalid ${repo}`, "GitRepo");
+    fail()
+  }
+  const repoDir = Path.cwd().join(repoName).asOsPath();
+  return repoDir;
 }

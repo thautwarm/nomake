@@ -6,11 +6,11 @@ export * from "./source/shell.ts";
 export * from "./source/env.ts";
 export * from "./source/repo.ts";
 export * from "./source/web.ts";
-import * as Glob from "https://deno.land/std@0.223.0/fs/expand_glob.ts";
-import * as SemVer from "https://deno.land/std@0.223.0/semver/mod.ts";
-
 import * as Bflat from "./source/toolchains/bflat.ts";
 import * as CC from "./source/toolchains/cc.ts";
+
+import { Glob, SemVer } from "./deps.ts";
+
 export
 {
   /**
