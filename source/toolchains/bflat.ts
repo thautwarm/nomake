@@ -79,7 +79,7 @@ export class Build
   async run(output: string, option?: BflatBuildOptions)
   {
     const bflat = option?.bflatExe ?? await assureBflat();
-    const cmd = this.buildCommand(bflat, new NM.Path(output).abs().asOsPath());
+    const cmd = await this.buildCommand(bflat, new NM.Path(output).abs().asOsPath());
     const buildDir = option?.buildDir;
     if (buildDir)
     {
@@ -99,7 +99,7 @@ export class Build
     );
   }
 
-  buildCommand(bflatExe: string, output: string): string[]
+  async buildCommand(bflatExe: string, output: string): Promise<string[]>
   {
     const argv: string[] = [bflatExe];
     let isBuildingIL = false;
@@ -319,9 +319,12 @@ export class Build
       {
         const p = new NM.Path(file).abs().asOsPath();
         if (duplicate.has(p)) continue;
-        argv.push(p);
         duplicate.add(p);
       }
+      const files = Array.from(duplicate).sort();
+      const rspFile = new NM.Path(output).withExt('.rsp');
+      await rspFile.writeText(files.join('\n'));
+      argv.push(`@${rspFile.asOsPath()}`);
     }
 
     return argv;
