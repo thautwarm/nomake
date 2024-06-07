@@ -1,9 +1,9 @@
 import
-  {
-    decodeBase32, decodeBase64, encodeBase32, encodeBase64,
-    Md5,
-    fs, os, path
-  } from '../deps.ts';
+{
+  decodeBase32, decodeBase64, encodeBase32, encodeBase64,
+  Md5,
+  fs, os, path
+} from '../deps.ts';
 export
 {
   decodeBase32, decodeBase64, encodeBase32, encodeBase64,
@@ -151,17 +151,38 @@ export function pathsep()
   return ":";
 }
 
+const _isWindows: { value?: boolean } = { value: undefined };
+const _isExeMode = fs.constants.S_IXUSR | fs.constants.S_IXGRP | fs.constants.S_IXOTH;
+
 export async function isExe(path: string)
 {
-  try
+  if (_isWindows.value === undefined)
+    _isWindows.value = Deno.build.os == 'windows';
+
+  if (_isWindows.value)
   {
-    await fs.promises.access(path, fs.constants.X_OK);
-    return true;
-  } catch
+    try
+    {
+      await fs.promises.access(path, fs.constants.X_OK)
+      return true;
+    } catch
+    {
+      return false;
+    }
+  }
+  else
   {
-    return false;
+    try
+    {
+      const stat = await fs.promises.stat(path)
+      return stat.isFile() && !!((stat.mode & _isExeMode));
+    } catch
+    {
+      return false;
+    }
   }
 }
+
 export async function whichCommand(name: string)
 {
   const list: string[] = Deno.env.get("PATH")?.split(pathsep()) || [];
