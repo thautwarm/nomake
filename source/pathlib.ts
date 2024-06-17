@@ -369,6 +369,10 @@ export class Path
         throw new Error(`Cannot copy directory to file: ${target.asOsPath()}`);
       }
 
+      if (!await target.exists()) {
+        await target.mkdir({ onError: "ignore", parents: true });
+      }
+
       if (options?.contentsOnly)
       {
         await Path.copyContentDir(this, target);
@@ -398,10 +402,10 @@ export class Path
       const thisIsFile = await srcFile.isFile();
       if (thisIsFile)
       {
-        return fs.promises.copyFile(srcFile.asOsPath(), destFile.asOsPath());
+        await fs.promises.copyFile(srcFile.asOsPath(), destFile.asOsPath());
       } else
       {
-        return Path.copyContentDir(srcFile, destFile);
+        await Path.copyContentDir(srcFile, destFile);
       }
     });
     await Promise.all(tasks);
