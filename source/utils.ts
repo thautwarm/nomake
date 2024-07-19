@@ -162,3 +162,82 @@ export function never(x: never): never
 {
   throw new Error(`Unreachable: ${x}`);
 }
+
+// 基于 python pathlib 中的规范
+export function getExts(path: string, returnPrefixDot: boolean)
+{
+  if (path.endsWith(".")) return [];
+  path = _lstrip(path, ".");
+
+  const sections = path.split(".").slice(1);
+  if (returnPrefixDot)
+  {
+    return sections.map((ext) => `.${ext}`);
+  } else
+  {
+    return sections;
+  }
+}
+
+function _lstrip(s: string, chars: string)
+{
+  let i = 0;
+  while (i < s.length && chars.includes(s[i]))
+  {
+    i++;
+  }
+  return s.slice(i);
+}
+
+export function urlToValidFileName(url: string)
+{
+  let buffer;
+  let i = 0;
+  if (url.startsWith("https://"))
+  {
+    i = "https://".length;
+    buffer = "0"
+  }
+  else if (url.startsWith("http://"))
+  {
+    i = "http://".length;
+    buffer = "1"
+  }
+  else
+  {
+    buffer = "2"
+  }
+
+  for (; i < url.length; i++)
+  {
+    const c = url[i];
+    switch (c)
+    {
+      case "%":
+        buffer += "=";
+        break;
+      case "/":
+        buffer += "!";
+        break;
+      case '.':
+      case '_':
+      case '-':
+        buffer += c;
+        break;
+      default:
+        if ('a' <= c && c <= 'z' || '0' <= c && c <= '9')
+        {
+          buffer += c;
+        }
+        else if ('A' <= c && c <= 'Z')
+        {
+          buffer += '+' + c.toLowerCase();
+        }
+        else
+        {
+          buffer += `@${c.codePointAt(0)?.toString(16)}`;
+        }
+    }
+  }
+  return buffer;
+}

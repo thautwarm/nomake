@@ -202,7 +202,7 @@ export type ResolvedTargets =
 export class Target
 {
   name: string;
-  build: (
+  build?: (
     arg: { deps: ResolvedTargets; target: string },
   ) => void | Promise<void>;
   rebuild: "always" | "never" | "onChanged";
@@ -237,9 +237,9 @@ export class Target
 
   constructor(
     name: string,
-    build: (
+    build: undefined | ((
       arg: { deps: BuildDependencies; target: string },
-    ) => void | Promise<void>,
+    ) => void | Promise<void>),
     rebuild: "always" | "never" | "onChanged",
     deps:
       | BuildDependencies
@@ -300,7 +300,7 @@ export type TargetParams<It extends BuildDependencies> = {
    *
    * The build logic of the target.
    */
-  build: (
+  build?: (
     arg: { deps: InferTargets<It>; target: string },
   ) => void | Promise<void>;
   /**
@@ -636,14 +636,21 @@ export class MakefileRunner
     struct: string | string[] | Record<string, string | string[]>,
   )
   {
+    const target = _COMMANDS.get(targetName);
+    const virtual = target?.virtual ?? false;
+
     try
     {
-      const target = _COMMANDS.get(targetName);
-      const virtual = target?.virtual ?? false;
-
-      if (target && !virtual)
+      if (target)
       {
-        Log.info(`Building ${targetName}`, "NoMake.Build");
+        if (!virtual)
+        {
+          Log.info(`Building ${targetName}`, "NoMake.Build");
+        }
+        else
+        {
+          Log.info(`Start`, targetName);
+        }
       }
 
       if (!virtual)
@@ -683,10 +690,16 @@ export class MakefileRunner
       // to comfort the type checker
       if (target)
       {
-        await target.build({
-          deps: struct,
-          target: targetName,
-        });
+        const build = target.build;
+        if (build)
+        {
+          await build({ deps: struct, target: targetName });
+        }
+
+        if (virtual)
+        {
+          Log.ok(`Done`, targetName);
+        }
       }
     } finally
     {
@@ -828,10 +841,13 @@ export async function makefile(targets?: string[])
       }
     }
 
-    console.log("Options:");
-    for (const [key, option] of _OPTIONS)
+    if (_OPTIONS.size > 0)
     {
-      console.log(`    [-D${key}=value] ${option.doc ?? "Undocumented"}`);
+      console.log("Options:");
+      for (const [key, option] of _OPTIONS)
+      {
+        console.log(`    [-D${key}=value] ${option.doc ?? "Undocumented"}`);
+      }
     }
     return;
   }

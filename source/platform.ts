@@ -1,3 +1,5 @@
+import { getExts } from "./utils.ts";
+
 export type OS =
   | "linux"
   | "windows"
@@ -89,36 +91,70 @@ export class Platform
         return { unknownStr: Deno.build.arch };
     }
   }
+}
 
-  // static get currentOS(): OS
-  // {
-  //     switch (process.platform)
-  //     {
-  //         case 'linux':
-  //             return 'linux';
-  //         case 'win32':
-  //             return 'windows';
-  //         case 'darwin':
-  //             return 'macos';
-  //         default:
-  //             return { unknownStr: process.platform };
-  //     }
-  // }
+export function fixHostExePath(path: string)
+{
+  return fixExePath(path, Platform.current.os);
+}
 
-  // static get currentArch(): Arch
-  // {
-  //     switch (process.arch)
-  //     {
-  //         case 'ia32':
-  //             return 'x86';
-  //         case 'x64':
-  //             return 'x64';
-  //         case 'arm':
-  //             return 'arm';
-  //         case 'arm64':
-  //             return 'arm64';
-  //         default:
-  //             return { unknownStr: process.arch };
-  //     }
-  // }
+export function fixHostDllPath(path: string)
+{
+  return fixDllPath(path, Platform.current.os);
+}
+
+export function fixExePath(path: string, os: OS)
+{
+  if (os === "windows" && !path.endsWith(".exe"))
+  {
+    return `${path}.exe`;
+  }
+  return path;
+}
+
+export function fixDllPath(path: string, os: OS)
+{
+  switch (os)
+  {
+    case "windows":
+      if (!path.endsWith(".dll"))
+      {
+        return `${path}.dll`;
+      }
+      break;
+    case "linux":
+      {
+        if (!isLinuxSharedLib(path))
+        {
+          return `${path}.so`;
+        }
+        break;
+      }
+    case "macos":
+      if (!path.endsWith(".dylib"))
+      {
+        return `${path}.dylib`;
+      }
+      break;
+    default:
+      break;
+  }
+  return path;
+}
+
+export function isLinuxSharedLib(path: string)
+{
+  const extensions = getExts(path, false);
+  if (extensions.length == 0) return false;
+
+  while (extensions.length > 0)
+  {
+    const lastExt = extensions[extensions.length - 1];
+    if (lastExt === 'so') return true;
+    const v = parseInt(lastExt);
+    if (isNaN(v)) return false;
+    extensions.pop();
+  }
+
+  return false;
 }

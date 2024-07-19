@@ -2,6 +2,7 @@
 import { Glob } from "../deps.ts";
 import { fs, getCwd, os, path as _path } from "./compat.ts";
 import { Log } from "./log.ts";
+import { getExts } from "./utils.ts";
 
 function _toPosixPath(path: string): string
 {
@@ -121,6 +122,11 @@ export class Path
   get ext(): string
   {
     return _path.extname(this.name);
+  }
+
+  extensions(opts?: { returnPrefixDot?: boolean }): string[]
+  {
+    return getExts(this.name, opts?.returnPrefixDot ?? false);
   }
 
   get stem(): string
@@ -369,7 +375,8 @@ export class Path
         throw new Error(`Cannot copy directory to file: ${target.asOsPath()}`);
       }
 
-      if (!await target.exists()) {
+      if (!await target.exists())
+      {
         await target.mkdir({ onError: "ignore", parents: true });
       }
 

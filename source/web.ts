@@ -1,6 +1,7 @@
 import { Log } from "./log.ts";
 import { Path } from "./pathlib.ts";
-import { Encode, target } from "./build.ts";
+import { target } from "./build.ts";
+import { urlToValidFileName } from "./utils.ts";
 
 export class Web
 {
@@ -40,20 +41,8 @@ export interface WebArchiveOptions
 export function webArchive(url: string, options?: WebArchiveOptions)
 {
   const dir = options?.directory ?? "tmp/web";
-  const resourceId = Encode.encodeB64Path(url);
-  const targetNoSuffix = `${dir}/${resourceId}`;
-  const targetStr = (() =>
-  {
-    if (options?.suffixRespectUrl)
-    {
-      const urlObj = new URL(url);
-      const ext = new Path(urlObj.pathname).ext;
-      return ext ? `${dir}/${resourceId}${ext}` : targetNoSuffix;
-    } else
-    {
-      return targetNoSuffix;
-    }
-  })();
+  const resourceId = urlToValidFileName(url);
+  const targetStr = `${dir}/${resourceId}`;
 
   return target(
     {

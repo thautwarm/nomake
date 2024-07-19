@@ -31,4 +31,4 @@ export
    */
   SemVer,
 };
-export { autoReadFile, exit, never } from "./source/utils.ts";
+export { autoReadFile, exit, never, urlToValidFileName } from "./source/utils.ts";
