@@ -40,7 +40,6 @@ NM.target(
   {
     name: "build",
     deps: [cBuild, csBuild],
-    build: () => NM.Log.ok("Build Complete"),
   },
 );
 

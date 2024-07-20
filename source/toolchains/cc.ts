@@ -510,9 +510,9 @@ export class GCC extends CCompiler
     if (this.ccoptions !== undefined)
     {
       NM.Log.warn(
-        `momake.cToolchain GCC/G++ rule sets so far do not support target options,` +
+        `nomake.cToolchain GCC/G++ rule sets so far do not support target options,` +
         `it uses the current platform's default settings.`,
-        "momake.cToolchain",
+        "nomake.cToolchain",
       );
     }
 
@@ -524,9 +524,9 @@ export class GCC extends CCompiler
     if (this.ccoptions !== undefined)
     {
       NM.Log.warn(
-        `momake.cToolchain GCC/G++ rule sets so far do not support target options,` +
+        `nomake.cToolchain GCC/G++ rule sets so far do not support target options,` +
         `it uses the current platform's default settings.`,
-        "momake.cToolchain",
+        "nomake.cToolchain",
       );
     }
 
@@ -546,7 +546,7 @@ export class GCC extends CCompiler
       const gPlusPlus = await NM.Shell.which("g++");
       if (!gPlusPlus)
       {
-        NM.Log.error("g++ not found", "momake.cToolchain");
+        NM.Log.error("g++ not found", "nomake.cToolchain");
         NM.fail();
       }
 
@@ -557,7 +557,7 @@ export class GCC extends CCompiler
       const gcc = await NM.Shell.which("gcc");
       if (!gcc)
       {
-        NM.Log.error("gcc not found", "momake.cToolchain");
+        NM.Log.error("gcc not found", "nomake.cToolchain");
         NM.fail();
       }
 
@@ -742,7 +742,7 @@ export class Zig extends CCompiler
     const zigExe = await NM.Shell.which("zig");
     if (!zigExe)
     {
-      NM.Log.error("zig not found", "momake.cToolchain");
+      NM.Log.error("zig not found", "nomake.cToolchain");
       NM.fail();
     }
     argv.push(zigExe);
@@ -824,7 +824,7 @@ export class Zig extends CCompiler
       {
         NM.Log.warn(
           "No source file found in the compilation",
-          "momake.cToolchain",
+          "nomake.cToolchain",
         );
         return;
       }
@@ -839,14 +839,14 @@ export class Zig extends CCompiler
         {
           NM.Log.warn(
             "No .lib file found in the compilation",
-            "momake.cToolchain",
+            "nomake.cToolchain",
           );
           return;
         }
         await source.copyTo(destPath.withExt(".lib"));
       } catch
       {
-        NM.Log.warn(`Copying ${source.name} failed`, "momake.cToolchain");
+        NM.Log.warn(`Copying ${source.name} failed`, "nomake.cToolchain");
       }
     }
   }

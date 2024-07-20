@@ -32,7 +32,7 @@ Then your create a `build.ts` file in your project root:
 ```typescript
 /* filename: build.ts */
 
-import * as NM from "https://github.com/thautwarm/nomake/raw/v0.1.9/mod.ts";
+import * as NM from "https://github.com/thautwarm/nomake/raw/v0.1.10/mod.ts";
 
 // define options
 NM.option("legacy", ({ value }) => {/* do stuff with value */});
@@ -61,10 +61,6 @@ NM.target(
     deps: ["output.txt"],
     // the top-level virtual target should be always rebuilt
     rebuild: "always",
-    async build()
-    {
-      console.log("Build finished!");
-    },
   },
 );
 
