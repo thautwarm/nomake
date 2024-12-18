@@ -50,4 +50,23 @@ NM.target(
   },
 );
 
+NM.target(
+  {
+    name: "test",
+    deps: {windowsBuild, linuxBuild, config: 'build.ts'},
+    virtual: true,
+    rebuild: 'always',
+    async build({deps}) {
+      const path =  (NM.Platform.currentOS == 'windows') ? deps.windowsBuild : deps.linuxBuild;
+      const captureStdout = (await NM.Shell.run([ path ], {
+        stdout: 'capture'
+      })).stdout;
+
+      if (captureStdout.trim() != "Hello, World from .NET!") {
+        throw new Error(`Unexpected output: ${captureStdout}`);
+      }
+    },
+  },
+);
+
 NM.makefile();

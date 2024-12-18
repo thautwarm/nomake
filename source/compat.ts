@@ -1,14 +1,15 @@
 import
 {
-  decodeBase32, decodeBase64, encodeBase32, encodeBase64,
+  decodeBase32,
+  decodeBase64,
+  encodeBase32,
+  encodeBase64,
+  fs,
   Md5,
-  fs, os, path
-} from '../deps.ts';
-export
-{
-  decodeBase32, decodeBase64, encodeBase32, encodeBase64,
-  fs, os, path
-};
+  os,
+  path,
+} from "../deps.ts";
+export { decodeBase32, decodeBase64, encodeBase32, encodeBase64, fs, os, path };
 
 export class Md5Hasher
 {
@@ -152,30 +153,34 @@ export function pathsep()
 }
 
 const _isWindows: { value?: boolean } = { value: undefined };
-const _isExeMode = fs.constants.S_IXUSR | fs.constants.S_IXGRP | fs.constants.S_IXOTH;
+const _isExeMode = fs.constants.S_IXUSR | fs.constants.S_IXGRP |
+  fs.constants.S_IXOTH;
 
 export async function isExe(path: string)
 {
   if (_isWindows.value === undefined)
-    _isWindows.value = Deno.build.os == 'windows';
+  {
+    _isWindows.value = Deno.build.os == "windows";
+  }
 
   if (_isWindows.value)
   {
     try
     {
-      await fs.promises.access(path, fs.constants.X_OK)
-      return true;
+      // windows has no concept of executable bit
+      // we only check for file existence
+      const stats = await fs.promises.lstat(path);
+      return stats.isFile();
     } catch
     {
       return false;
     }
-  }
-  else
+  } else
   {
     try
     {
-      const stat = await fs.promises.stat(path)
-      return stat.isFile() && !!((stat.mode & _isExeMode));
+      const stat = await fs.promises.stat(path);
+      return stat.isFile() && !!(stat.mode & _isExeMode);
     } catch
     {
       return false;
@@ -247,4 +252,45 @@ export async function whichCommand(name: string)
 export function readFile(p: string)
 {
   return Deno.readFile(p);
+}
+
+export async function allPromisesUnderLimitedParallelism<T>(
+  opts: {
+    tasks: (() => Promise<T>)[],
+    limit?: number
+  },
+): Promise<T[]>
+{
+  const promises = opts.tasks;
+  const limit = opts.limit ?? getNoMakeTaskParallelLimit();
+  const res: T[] = [];
+  const range = { start: 0, end: limit };
+
+  while (range.start < promises.length)
+  {
+    const chunk = promises.slice(range.start, range.end);
+    const chunkRes = await Promise.all(chunk.map((p) => p()));
+    res.push(...chunkRes);
+
+    range.start = range.end;
+    range.end = Math.min(range.end + limit, promises.length);
+  }
+
+  return res;
+}
+
+export const DEFAULT_TASK_PARALLEL_LIMIT = 12;
+
+export function getNoMakeTaskParallelLimit()
+{
+  const envSetting = Deno.env.get("NOMAKE_TASK_PARALLEL_LIMIT");
+  if (envSetting)
+  {
+    const limit = parseInt(envSetting);
+    if (!isNaN(limit) && limit >= 1)
+    {
+      return limit;
+    }
+  }
+  return DEFAULT_TASK_PARALLEL_LIMIT;
 }

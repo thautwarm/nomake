@@ -3,7 +3,7 @@ import * as NM from "../mod.ts";
 export { NM };
 
 export const Config = {
-  denoVersion: "v1.42.4",
+  denoVersion: "v2.1.4",
 };
 
 function belong<U extends string, T extends U>(

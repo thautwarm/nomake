@@ -64,4 +64,20 @@ NM.target(
     },
   });
 
+NM.target(
+  {
+    name: 'test',
+    virtual: true,
+    rebuild: 'always',
+    deps: { config: 'build.ts', gcc: 'dist/gcc/myapp', zig: 'dist/zig/myapp', cmake: 'dist/cmake' },
+    async build({deps}) {
+      const stdout = (await NM.Shell.run([deps.gcc], { stdout: "capture" })).stdout;
+      const expected = "Hello, World! 5";
+      if (stdout.trim() !== expected) {
+        throw new Error(`Expected "${expected}", but got "${stdout.trim()}"`);
+      }
+    }
+  }
+)
+
 NM.makefile();

@@ -1,7 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import * as NM from "./mod.ts";
+import { allPromisesUnderLimitedParallelism } from "./source/compat.ts";
 
-Deno.test("url test", () => {
+Deno.test("url test", () =>
+{
   assertEquals(NM.isLinuxSharedLib("a.so.8"), true);
   assertEquals(NM.fixDllPath("a.so.8", "linux"), "a.so.8");
   assertEquals(NM.fixDllPath("a.so.a", "linux"), "a.so.a.so");
@@ -25,8 +27,47 @@ Deno.test("url test", () => {
       "a.k.so.8",
       "a.dylib",
     ]
-  ) {
+  )
+  {
     assertEquals(NM.fixDllPath(p, NM.Platform.currentOS), NM.fixHostDllPath(p));
     assertEquals(NM.fixExePath(p, NM.Platform.currentOS), NM.fixHostExePath(p));
   }
 });
+
+assertEquals(await allPromisesUnderLimitedParallelism({
+  tasks: [], limit: 1
+}), []);
+
+async function test1(): Promise<number>
+{
+  // wait for 1 seconds
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return 1;
+}
+{
+  const t0 = performance.now();
+  assertEquals(
+    await allPromisesUnderLimitedParallelism({ tasks: [test1, test1, test1, test1], limit: 2 }),
+    [1, 1, 1, 1],
+  );
+  const t1 = performance.now();
+  assertEquals((t1 - t0) < 2500 && (t1 - t0) > 2000, true);
+}
+{
+  const t0 = performance.now();
+  assertEquals(
+    await allPromisesUnderLimitedParallelism(
+      {
+        tasks: [
+          test1,
+          test1,
+          test1,
+          test1,
+          test1,
+        ], limit: 2
+      }),
+    [1, 1, 1, 1, 1],
+  );
+  const t1 = performance.now();
+  assertEquals((t1 - t0) < 3500 && (t1 - t0) > 3000, true);
+}

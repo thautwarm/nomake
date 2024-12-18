@@ -3,6 +3,7 @@ import { Path } from "./pathlib.ts";
 import { Log } from "./log.ts";
 import
 {
+allPromisesUnderLimitedParallelism,
   decodeBase32,
   decodeBase64,
   encodeBase32,
@@ -551,8 +552,8 @@ export class MakefileRunner
           }
         } else
         {
-          const tasks = deps.map((dep) => this.run(dep));
-          await Promise.all(tasks);
+          const tasks = deps.map((dep) => () => this.run(dep));
+          await allPromisesUnderLimitedParallelism({ tasks: tasks });
         }
       }
 

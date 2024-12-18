@@ -2,7 +2,7 @@ public static class Entry
 {
     public static void Main()
     {
-        System.Console.WriteLine("Hello, World!");
+        System.Console.WriteLine("Hello, World from .NET!");
     }
 }
 
