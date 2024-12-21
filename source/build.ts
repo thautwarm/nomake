@@ -3,7 +3,7 @@ import { Path } from "./pathlib.ts";
 import { Log } from "./log.ts";
 import
 {
-allPromisesUnderLimitedParallelism,
+  allPromisesUnderLimitedParallelism,
   decodeBase32,
   decodeBase64,
   encodeBase32,
@@ -70,8 +70,8 @@ function cacheTextToB32(s: string)
 }
 
 export type BuildDependency = string | Target;
-// deno-lint-ignore no-explicit-any
 export type BuildDependencySugar =
+  // deno-lint-ignore no-explicit-any
   | AsyncGenerator<BuildDependency, any, any>
   | BuildDependency[]
   | BuildDependency;
@@ -174,8 +174,8 @@ async function _collectDeps(
 type InferTarget<It extends BuildDependencySugar> = It extends BuildDependency[]
   ? string[]
   : It extends BuildDependency ? string
-  // deno-lint-ignore no-explicit-any
   : It extends AsyncIterable<BuildDependency> ? string[]
+  // deno-lint-ignore no-explicit-any
   : any;
 
 type InferRecord<It extends { [key: string]: BuildDependencySugar }> = {
