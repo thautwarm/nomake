@@ -42,6 +42,12 @@ export class Path
       return;
     }
 
+    if (p === ".")
+    {
+      this.parts = ["."];
+      return;
+    }
+
     this.parts = _toPosixPath(p).split("/");
     if (this.parts.length == 0)
     {
@@ -558,19 +564,49 @@ export class Path
   }
 }
 
-function _addPart(parts: string[], part: string)
+function _addPart(parts: string[], part: string, is_path_sector: boolean)
 {
+  part = part.trim();
   if (part === "")
   {
     return;
   }
+
+  if (is_path_sector)
+  {
+    // if a `part` startswith '/' or '\', then report an error
+    // P.S: although some language like Python has `joinpath(p1, '/p2') == '/p2'`,
+    //      this is dangerous in at least this build system (e.g., `${sector1}/sector2`),
+    //      so we make this an error to let downstream developers handle the issue explicitly.
+    if (part.startsWith('/'))
+    {
+      if (parts.length == 0)
+      {
+        // unix root
+        parts.push(part);
+        return;
+      }
+      throw new Error(`Slashes or backslashes are not treated as path separators: ${part}`);
+    }
+    else if (part.startsWith("\\"))
+    {
+      throw new Error(`Slashes or backslashes are not treated as path separators: ${part}`);
+    }
+  }
+
   parts.push(part);
 }
 
 /**
  * 从字符串字面量创建 Path 对象
  *
+ * 注意：形如 `${p}` 的每一个插值将表示一个独立 path segment，而不是一般的字符串拼接。
+ * 因此， `${a}/${b}` 等价于 `${a}${b}`。
+ *
  * Create a Path object from a string literal
+ *
+ * NOTE: Each interpolation like `${p}` will represent an independent path segment, but not the regular string concatenation.
+ * Hence, `${a}/${b}` is equivalent to `${a}${b}`.
  *
  * ```typescript
  * let x = NM.p`${path}/a/b/c` // path.join("a", "b", "c")
@@ -580,17 +616,17 @@ function _addPart(parts: string[], part: string)
 export function p(strings: TemplateStringsArray, ...keys: (Path | string)[]): Path
 {
   let base: Path | undefined = undefined;
-  const parts: string[] = [];
+  let parts: string[] = [];
   for (let i = 0; i < strings.length; i++)
   {
     const part = strings[i];
-    _addPart(parts, part);
+    _addPart(parts, part, false);
     if (i < keys.length)
     {
       const key = keys[i];
       if (typeof key == 'string')
       {
-        _addPart(parts, key);
+        _addPart(parts, key, true);
       }
       else if (key instanceof Path)
       {
@@ -612,10 +648,17 @@ export function p(strings: TemplateStringsArray, ...keys: (Path | string)[]): Pa
   }
   if (!base)
   {
-    return new Path(parts.join(""));
+    if (parts.length === 0)
+    {
+      return new Path('.');
+    }
+    if (parts.length === 1)
+    {
+      return new Path(parts[0]);
+    }
+    base = new Path(parts[0]);
+    parts = parts.slice(1);
   }
-  else
-  {
-    return base.join(parts.join(""))
-  }
+
+  return base.join(...parts)
 }
