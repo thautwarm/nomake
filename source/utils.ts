@@ -241,3 +241,17 @@ export function urlToValidFileName(url: string)
   }
   return buffer;
 }
+
+/**
+ * 检测对象是否为限定取值下的字符串
+ *
+ * Check if the object is a string under the specified values
+ */
+export function inOptions<T, U extends T & string>(arg: T, options: U[]): arg is U
+{
+  if (typeof arg === 'string') {
+    // deno-lint-ignore no-explicit-any
+    return options.includes(<any>arg);
+  }
+  return false;
+}

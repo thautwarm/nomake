@@ -1,3 +1,8 @@
+v0.1.12
+---------
+- adding `NM.p` to ease the building of path objects.
+- adding `NM.version` to allow downstream projects to check the validity/compatibility.
+
 v0.1.11
 ---------
 - the build system now works allow configuring the number of parallel jobs to use (default is `12`; configurable via `NOMAKE_TASK_PARALLEL_LIMIT` environment variable).

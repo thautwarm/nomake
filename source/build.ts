@@ -780,6 +780,7 @@ export function option(
   options:
     // deno-lint-ignore no-explicit-any
     ((arg: { key: string; value: string }) => any) | {
+      // deno-lint-ignore no-explicit-any
       callback: (arg: { key: string; value: string }) => any;
       doc?: string;
     },

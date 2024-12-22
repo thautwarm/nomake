@@ -71,3 +71,6 @@ async function test1(): Promise<number>
   const t1 = performance.now();
   assertEquals((t1 - t0) < 3500 && (t1 - t0) > 3000, true);
 }
+
+const base = NM.Path.cwd();
+assertEquals(NM.p`${base}/a/b/c/d`.asPosix(), NM.Path.cwd().join("a", "b", "c", "d").asPosix())

@@ -1,6 +1,7 @@
 .nomake_files
 build/
 tmp/
+dev.ts
 deno.lock
 
 # Based on https://raw.githubusercontent.com/github/gitignore/main/Node.gitignore

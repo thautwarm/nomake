@@ -557,3 +557,65 @@ export class Path
     yield* new Path(root).glob(pattern, options);
   }
 }
+
+function _addPart(parts: string[], part: string)
+{
+  if (part === "")
+  {
+    return;
+  }
+  parts.push(part);
+}
+
+/**
+ * 从字符串字面量创建 Path 对象
+ *
+ * Create a Path object from a string literal
+ *
+ * ```typescript
+ * let x = NM.p`${path}/a/b/c` // path.join("a", "b", "c")
+ * let y = NM.p`a/b/c`  // new NM.Path("a").join("b", "c")
+ * ```
+ */
+export function p(strings: TemplateStringsArray, ...keys: (Path | string)[]): Path
+{
+  let base: Path | undefined = undefined;
+  const parts: string[] = [];
+  for (let i = 0; i < strings.length; i++)
+  {
+    const part = strings[i];
+    _addPart(parts, part);
+    if (i < keys.length)
+    {
+      const key = keys[i];
+      if (typeof key == 'string')
+      {
+        _addPart(parts, key);
+      }
+      else if (key instanceof Path)
+      {
+        if (parts.length !== 0)
+        {
+          throw new Error(`Path must be at the beginning of p-string`);
+        }
+        if (base)
+        {
+          throw new Error(`Only one Path is allowed in p-string`);
+        }
+        base = key;
+      }
+      else
+      {
+        throw new Error(`Invalid key in p-string: ${key}`);
+      }
+    }
+  }
+  if (!base)
+  {
+    return new Path(parts.join(""));
+  }
+  else
+  {
+    return base.join(parts.join(""))
+  }
+}

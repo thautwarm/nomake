@@ -7,6 +7,12 @@ import
     targetPlatformIdentifier,
 } from "./config.build.ts";
 
+if (!NM.SemVer.greaterThan(NM.version, NM.SemVer.parse('0.1.11'))) {
+    NM.Log.error("This project requires nomake version 0.1.12 or later.");
+    NM.fail();
+}
+
+
 const denoReleaseName = {
     "macos-x64": "deno-x86_64-apple-darwin.zip",
     "macos-arm64": "deno-aarch64-apple-darwin.zip",

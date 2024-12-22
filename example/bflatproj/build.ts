@@ -57,7 +57,11 @@ NM.target(
     virtual: true,
     rebuild: 'always',
     async build({deps}) {
-      const path =  (NM.Platform.currentOS == 'windows') ? deps.windowsBuild : deps.linuxBuild;
+      const os = NM.Platform.currentOS;
+      if (!NM.inOptions(os, ['windows', 'linux'])) {
+        throw new Error(`Unsupported OS: ${os}`);
+      }
+      const path =  os == 'windows' ? deps.windowsBuild : deps.linuxBuild;
       const captureStdout = (await NM.Shell.run([ path ], {
         stdout: 'capture'
       })).stdout;

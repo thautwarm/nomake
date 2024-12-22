@@ -31,4 +31,6 @@ export
    */
   SemVer,
 };
-export { autoReadFile, exit, never, urlToValidFileName } from "./source/utils.ts";
+export { autoReadFile, exit, never, urlToValidFileName, inOptions } from "./source/utils.ts";
+
+export const version = SemVer.parse("0.1.12");
