@@ -1,3 +1,8 @@
+v0.1.11
+---------
+- the build system now works allow configuring the number of parallel jobs to use (default is `12`; configurable via `NOMAKE_TASK_PARALLEL_LIMIT` environment variable).
+- get rid of an upstream bug in `deno` that causes `deno` to throw an error when checking executable permissions on Windows (ref: denoland/deno#27405).
+
 v0.1.10
 ---------
 - `build` parameter is now optional to `NM.target`
