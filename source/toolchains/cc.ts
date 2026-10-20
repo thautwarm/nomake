@@ -1,4 +1,5 @@
 import * as NM from "../../mod.ts";
+import type { OS, Arch } from "../platform.ts";
 
 // compute endianess
 const IsBE = new Uint16Array(new Uint8Array([0x12, 0x34]).buffer)[0] === 0x1234;
@@ -32,8 +33,8 @@ export type ZigTarget =
 
 export type CCOptions =
   | {
-    os?: NM.OS;
-    arch?: Exclude<NM.Arch, "arm">;
+    os?: OS;
+    arch?: Exclude<Arch, "arm">;
     endianness?: "little" | "big";
     libc?: "glibc" | "musl";
     glibcVersion?: string;
@@ -50,8 +51,8 @@ export type CCOptions =
 
 export class ZigToolchain
 {
-  os: NM.OS;
-  arch: NM.Arch;
+  os: OS;
+  arch: Arch;
   endianness: "little" | "big";
   libc?: "glibc" | "musl";
   glibcVersion?: string;
@@ -722,7 +723,7 @@ export class Zig extends CCompiler
   {
     return this.nativeCompile(compilation, dest, "exe");
   }
-  ccoptions?: CCOptions;
+  override ccoptions?: CCOptions;
   zigToolchain: ZigToolchain;
 
   constructor(options?: CCOptions)
@@ -852,7 +853,7 @@ export class Zig extends CCompiler
   }
 }
 
-function computeDest(dest: string, os: NM.OS, mode: "shared" | "exe")
+function computeDest(dest: string, os: OS, mode: "shared" | "exe")
 {
   if (mode == "exe")
   {

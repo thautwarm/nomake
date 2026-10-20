@@ -1,9 +1,13 @@
+import process from "node:process";
+import { randomUUID } from "node:crypto";
 import { equalU8Array, never as assertNever } from "./utils.ts";
 import { Path } from "./pathlib.ts";
 import { Log } from "./log.ts";
 import
 {
-  allPromisesUnderLimitedParallelism,
+  getNoMakeTaskParallelLimit,
+  fs,
+  path,
   decodeBase32,
   decodeBase64,
   encodeBase32,
@@ -219,19 +223,39 @@ export class Target
     struct: string | string[] | Record<string, string | string[]>;
   } | undefined;
 
-  // handle the lazy evaluation of dependencies
-  async evalDeps()
+  private initialDependencies?: Promise<{ deps: string[]; struct: ResolvedTargets }>;
+  private dependencyJobs = new WeakMap<object, Promise<{ deps: string[]; struct: ResolvedTargets }>>();
+
+  // Factories are replayable per runner; concrete iterators retain their snapshot.
+  async evalDeps(scope?: object)
   {
+    if (scope && typeof this.deps === "function")
+    {
+      let job = this.dependencyJobs.get(scope);
+      if (!job)
+      {
+        const factory = this.deps;
+        job = Promise.resolve().then(async () => _collectDeps(await factory.call(this)));
+        this.dependencyJobs.set(scope, job);
+      }
+      return await job;
+    }
     if (this._evaluatedDeps)
     {
       return this._evaluatedDeps;
     }
-    if (typeof this.deps == "function")
+    this.initialDependencies ??= Promise.resolve().then(async () => {
+      const value = typeof this.deps === "function" ? await this.deps() : this.deps;
+      return await _collectDeps(value);
+    });
+    const pending = this.initialDependencies;
+    try { this._evaluatedDeps = await pending; }
+    catch (error)
     {
-      this._evaluatedDeps = await _collectDeps(await this.deps());
-    } else
-    {
-      this._evaluatedDeps = await _collectDeps(this.deps);
+      // Legacy unscoped factories may retry; consumed concrete iterators cannot.
+      if (typeof this.deps === "function" && this.initialDependencies === pending)
+        this.initialDependencies = undefined;
+      throw error;
     }
     return this._evaluatedDeps;
   }
@@ -360,6 +384,8 @@ export function target<It extends BuildDependencies>(
 
 export class MakefileRunner
 {
+  private jobs = new Map<string, Promise<void>>();
+  /** Successful jobs in this session. Mutating this set does not restart jobs. */
   builtTargets: Set<string | Target>;
   buildingTargets: Set<string>;
   _cacheHome: Path | undefined;
@@ -378,7 +404,7 @@ export class MakefileRunner
   {
     if (!this._cacheHome || !this._cacheTargetDir)
     {
-      const cacehDirStr = Deno.env.get("NOMAKE_CACHE_DIR") ?? ".nomake_files";
+      const cacehDirStr = process.env["NOMAKE_CACHE_DIR"] ?? ".nomake_files";
       this._cacheHome = new Path(cacehDirStr).abs();
       this._cacheTargetDir = this._cacheHome.join("targets");
     }
@@ -396,31 +422,11 @@ export class MakefileRunner
     return this.initPath().targets;
   }
 
-  _assureCacheDir()
+  async _assureCacheDir()
   {
-    this.cacheHome.mkdir({
-      onError: "ignore",
-      parents: true,
-    });
-
-    if (!this.cacheHome.isDir())
-    {
-      throw new Error(
-        `cache directory is not available: ${this.cacheHome.asOsPath()}`,
-      );
-    }
-
-    this.cacheTargetDir.mkdir({
-      onError: "ignore",
-      parents: true,
-    });
-
-    if (!this.cacheTargetDir.isDir())
-    {
-      throw new Error(
-        `target cache directory is not available: ${this.cacheTargetDir.asOsPath()}`,
-      );
-    }
+    // Strict initialization: retain filesystem type, errno and original cause.
+    await fs.promises.mkdir(this.cacheHome.asOsPath(), { recursive: true });
+    await fs.promises.mkdir(this.cacheTargetDir.asOsPath(), { recursive: true });
   }
 
   private async getCacheHash(targetSelf: string)
@@ -428,25 +434,57 @@ export class MakefileRunner
     const cacheFile = this.cacheTargetDir.join(cacheTextToB32(targetSelf));
     try
     {
-      const stat = await cacheFile.stat();
-      if (stat.isFile())
+      if (!(await cacheFile.stat()).isFile()) return new Uint8Array();
+      const text = await cacheFile.readText();
+      try
       {
-        const encodedCache = await cacheFile.readText();
-        return Encode.decodeB64(encodedCache);
-      }
-      return Encode.encodeUtf8("unknown//" + targetSelf);
-    } catch
+        const hash = Encode.decodeB64(text);
+        return hash.length === 16 ? hash : new Uint8Array();
+      } catch { return new Uint8Array(); }
+    } catch (error)
     {
-      /* do nothing */
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      return new Uint8Array();
     }
+  }
 
-    return new Uint8Array();
+  private async revokeCacheHash(targetSelf: string)
+  {
+    try { await fs.promises.unlink(this.cacheTargetDir.join(cacheTextToB32(targetSelf)).asOsPath()); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
   }
 
   private async saveCacheHash(targetSelf: string, hash: Uint8Array)
   {
-    const cacheFile = this.cacheTargetDir.join(cacheTextToB32(targetSelf));
-    await cacheFile.writeText(Encode.encodeB64(hash));
+    const destination = this.cacheTargetDir.join(cacheTextToB32(targetSelf)).asOsPath();
+    const temporary = path.join(this.cacheTargetDir.asOsPath(), `.${randomUUID()}.tmp`);
+    // Own the temporary file before entering cleanup; never remove someone else's file.
+    const file = await fs.promises.open(temporary, "wx");
+    let committed = false;
+    try
+    {
+      try { await file.writeFile(Encode.encodeB64(hash)); }
+      finally { await file.close(); }
+      await fs.promises.rename(temporary, destination);
+      committed = true;
+    } finally
+    {
+      if (!committed)
+      {
+        try { await fs.promises.unlink(temporary); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      }
+    }
+  }
+
+  private async targetExists(targetName: string)
+  {
+    try { await new Path(path.resolve(this.cwd.asOsPath(), targetName)).stat(); return true; }
+    catch (error)
+    {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      return false;
+    }
   }
 
   private async computeHash(
@@ -457,33 +495,21 @@ export class MakefileRunner
   {
     preReqs = Array.from(preReqs).sort();
     const hgen = new Md5Hasher();
+    hgen.update("nomake-metadata-v2\0");
     if (!isPhony)
     {
       hgen.update("fs@");
       hgen.update(targetSelf);
-      const p = new Path(targetSelf);
-      if (await p.exists())
+      const p = new Path(path.resolve(this.cwd.asOsPath(), targetSelf));
+      try
       {
+        const stat = await p.stat();
         hgen.update("exist@");
-        hgen.update(cacheTextToB32(targetSelf));
-        if (!_COMMANDS.has(targetSelf))
-        {
-          try
-          {
-            const stat = await p.stat();
-            hgen.update(`${stat.mtimeMs}:${stat.size}:${stat.isFile}`);
-          } catch
-          {
-            hgen.update("~nonfile=");
-          }
-        } else
-        {
-          hgen.update("~filetarget@");
-        }
-      } else
+        hgen.update(`${stat.mtimeMs}:${stat.size}:${stat.mode & fs.constants.S_IFMT}`);
+      } catch (error)
       {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
         hgen.update("unknown@");
-        hgen.update(cacheTextToB32(targetSelf));
       }
     } else
     {
@@ -502,35 +528,25 @@ export class MakefileRunner
     return hgen.digest();
   }
 
-  async run(targetName: string)
+  run(targetName: string): Promise<void>
   {
-    this._assureCacheDir();
-
-    if (this.builtTargets.has(targetName))
-    {
-      return;
-    }
-
-    if (this.buildingTargets.has(targetName))
-    {
-      // if others are building this target, we just wait
-      let timeToWarn = 2000;
-      while (this.buildingTargets.has(targetName))
+    const existing = this.jobs.get(targetName);
+    if (existing) return existing;
+    const pending = Promise.resolve().then(async () => {
+      this.buildingTargets.add(targetName);
+      try
       {
-        await new Promise((resolve) => setTimeout(resolve, 64));
-        if (timeToWarn < 0)
-        {
-          Log.warn(`Waiting for ${targetName}`, "NoMake.Build");
-          timeToWarn = 2000;
-        } else
-        {
-          timeToWarn -= 64;
-        }
-      }
-      return;
-    }
+        await this.runOnce(targetName);
+        this.builtTargets.add(targetName);
+      } finally { this.buildingTargets.delete(targetName); }
+    });
+    this.jobs.set(targetName, pending);
+    return pending;
+  }
 
-    this.buildingTargets.add(targetName);
+  private async runOnce(targetName: string)
+  {
+    await this._assureCacheDir();
     const proft = new Proft(targetName);
 
     let target: Target | undefined;
@@ -541,7 +557,7 @@ export class MakefileRunner
       let depStruct: ResolvedTargets = [];
       if (target)
       {
-        const depsInfo = await target.evalDeps();
+        const depsInfo = await target.evalDeps(this);
         deps = depsInfo.deps;
         depStruct = depsInfo.struct;
         if (NO_PARALLEL)
@@ -552,8 +568,14 @@ export class MakefileRunner
           }
         } else
         {
-          const tasks = deps.map((dep) => () => this.run(dep));
-          await allPromisesUnderLimitedParallelism({ tasks: tasks });
+          const limit = getNoMakeTaskParallelLimit();
+          for (let start = 0; start < deps.length; start += limit)
+          {
+            // Drain the active batch before propagating failure to a new session.
+            const results = await Promise.allSettled(deps.slice(start, start + limit).map((dep) => this.run(dep)));
+            const failure = results.find((result) => result.status === "rejected");
+            if (failure?.status === "rejected") throw failure.reason;
+          }
         }
       }
 
@@ -587,7 +609,7 @@ export class MakefileRunner
         } else if (
           target.rebuild == "onChanged" &&
           equalU8Array(newHash, oldHash) &&
-          (isPhony || await this.cwd.join(targetName).exists())
+          (isPhony || await this.targetExists(targetName))
         )
         {
           Log.info(`skipping ${targetName}`, `NoMake.Build`);
@@ -595,7 +617,7 @@ export class MakefileRunner
         } else if (
           target.rebuild == "never" &&
           !isPhony &&
-          await this.cwd.join(targetName).exists()
+          await this.targetExists(targetName)
         )
         {
           await this.saveCacheHash(targetName, newHash);
@@ -609,6 +631,7 @@ export class MakefileRunner
         }
       }
 
+      await this.revokeCacheHash(targetName);
       await this.runImpl(targetName, depStruct);
 
       newHash = await this.computeHash(
@@ -628,7 +651,6 @@ export class MakefileRunner
     } finally
     {
       proft.dispose();
-      this.buildingTargets.delete(targetName);
     }
   }
 
@@ -640,73 +662,68 @@ export class MakefileRunner
     const target = _COMMANDS.get(targetName);
     const virtual = target?.virtual ?? false;
 
-    try
+    if (target)
     {
-      if (target)
-      {
-        if (!virtual)
-        {
-          Log.info(`Building ${targetName}`, "NoMake.Build");
-        }
-        else
-        {
-          Log.info(`Start`, targetName);
-        }
-      }
-
       if (!virtual)
       {
-        const p = this.cwd.join(targetName);
-        if (await p.exists() && target)
-        {
-          // Actually, this is only needed when the target
-          // is a directory.
-          // However, it is not easy to determine (the target could change drastically)
-          // Hence, we always remove the target.
-          if ((target.rebuild == "always" || target.rebuild == "onChanged"))
-          {
-            await p.rm({
-              onError: "ignore",
-              maxRetries: 0,
-              recursive: true,
-            });
-          } else if (target.rebuild == "never")
-          {
-            return;
-          }
-        }
-      } else
-      {
-        if (!target)
-        {
-          Log.error(
-            `No virtual target found for ${targetName}`,
-            `NoMake.Build`,
-          );
-          fail();
-        }
+        Log.info(`Building ${targetName}`, "NoMake.Build");
       }
-
-      // this is a redundant test
-      // to comfort the type checker
-      if (target)
+      else
       {
-        const build = target.build;
-        if (build)
-        {
-          await build({ deps: struct, target: targetName });
-        }
-
-        if (virtual)
-        {
-          Log.ok(`Done`, targetName);
-        }
+        Log.info(`Start`, targetName);
       }
-    } finally
+    }
+
+    if (!virtual)
     {
-      this.builtTargets.add(targetName);
+      const p = new Path(path.resolve(this.cwd.asOsPath(), targetName));
+      if (target && await this.targetExists(targetName))
+      {
+        // Actually, this is only needed when the target
+        // is a directory.
+        // However, it is not easy to determine (the target could change drastically)
+        // Hence, we always remove the target.
+        if ((target.rebuild == "always" || target.rebuild == "onChanged"))
+        {
+          await p.rm({
+            onError: "ignore",
+            maxRetries: 0,
+            recursive: true,
+          });
+        } else if (target.rebuild == "never")
+        {
+          return;
+        }
+      }
+    } else
+    {
+      if (!target)
+      {
+        Log.error(
+          `No virtual target found for ${targetName}`,
+          `NoMake.Build`,
+        );
+        fail();
+      }
+    }
+
+    // this is a redundant test
+    // to comfort the type checker
+    if (target)
+    {
+      const build = target.build;
+      if (build)
+      {
+        await build({ deps: struct, target: targetName });
+      }
+
+      if (virtual)
+      {
+        Log.ok(`Done`, targetName);
+      }
     }
   }
+
 }
 
 export class NonFatal extends Error { }
@@ -714,7 +731,6 @@ export class NonFatal extends Error { }
 const NO_PARALLEL = Boolean(getEnv("NOMAKE_NO_PARALLEL"));
 const NOMAKE_PROF = Boolean(getEnv("NOMAKE_PROF"));
 const _COMMANDS: Map<string, Target> = new Map();
-const MakefileInstance = new MakefileRunner();
 type OptionDef = {
   callback: (arg: { key: string; value: string }) => void;
   doc?: string;
@@ -798,7 +814,7 @@ export function option(
 
 export function parseOptions(targets?: string[])
 {
-  targets ??= Deno.args;
+  targets ??= process.argv.slice(2);
   function parseConf(conf: string)
   {
     const iD = conf.indexOf("-D");
@@ -831,7 +847,7 @@ export function parseOptions(targets?: string[])
 
 export async function makefile(targets?: string[])
 {
-  targets ??= Deno.args;
+  targets ??= process.argv.slice(2);
   function printHelp()
   {
     console.log("Targets:");
@@ -860,6 +876,7 @@ export async function makefile(targets?: string[])
     return;
   }
 
+  let runner: MakefileRunner | undefined;
   for (const target of targets)
   {
     if (target == "help")
@@ -869,7 +886,8 @@ export async function makefile(targets?: string[])
     }
     // options
     if (target.startsWith("-D")) continue;
-    await MakefileInstance.run(target);
+    runner ??= new MakefileRunner();
+    await runner.run(target);
   }
 }
 

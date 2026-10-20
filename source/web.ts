@@ -18,7 +18,7 @@ export class Web
       Log.verbose(`Downloading ${options.url} to ${options.path.asPosix()}...`);
     }
 
-    options.path.parent.mkdir({
+    await options.path.parent.mkdir({
       parents: true,
       onError: "ignore",
       mode: 0o755,
@@ -26,7 +26,7 @@ export class Web
 
     const res = await fetch(options.url);
     const ab = await res.arrayBuffer();
-    await Deno.writeFile(options.path.asPosix(), new Uint8Array(ab));
+    await options.path.writeBytes(new Uint8Array(ab));
 
     Log.ok(`Downloaded ${options.url} to ${options.path.asPosix()}`);
   }

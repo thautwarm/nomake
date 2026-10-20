@@ -1,3 +1,4 @@
+import process from "node:process";
 /**
  * 创建可静态检查、OOP 式的环境变量管理器
  *
@@ -10,10 +11,10 @@
  *    HOST: "localhost"
  * })
  *
- * console.log(Deno.env.get("PORT")) // "8080"
+ * console.log(process.env["PORT"]) // "8080"
  * console.log(env.PORT) // "8080"
  * env.PORT = "";
- * console.log(Deno.env.get("PORT")) // ""
+ * console.log(process.env["PORT"]) // ""
  * console.log(env.PORT) // ""
  * ```
  */
@@ -28,9 +29,9 @@ export abstract class Env
     {
       // if the environment variable is not set and the default value
       // is not undefined, set the default value
-      if (!Deno.env.has(k) && defaults[k] !== undefined)
+      if (process.env[k] === undefined && defaults[k] !== undefined)
       {
-        Deno.env.set(k, defaults[k]!);
+        process.env[k] = defaults[k]!;
       }
 
       // define getter and setter for each environment variable
@@ -40,7 +41,7 @@ export abstract class Env
         {
           get()
           {
-            return Deno.env.get(k) ?? defaults[k];
+            return process.env[k] ?? defaults[k];
           },
           set: (v: string | undefined) =>
           {
@@ -48,10 +49,10 @@ export abstract class Env
             // as undefined
             if (v !== undefined)
             {
-              Deno.env.set(k, v);
+              process.env[k] = v;
             } else
             {
-              Deno.env.delete(k);
+              delete process.env[k];
             }
           },
         },

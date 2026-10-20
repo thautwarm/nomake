@@ -1,3 +1,4 @@
+import process from "node:process";
 import { getExts } from "./utils.ts";
 
 export type OS =
@@ -66,29 +67,33 @@ export class Platform
 
   static get currentOS(): OS
   {
-    switch (Deno.build.os)
+    switch (process.platform)
     {
       case "linux":
         return "linux";
-      case "windows":
+      case "win32":
         return "windows";
       case "darwin":
         return "macos";
       default:
-        return { unknownStr: Deno.build.os };
+        return { unknownStr: process.platform };
     }
   }
 
   static get currentArch(): Arch
   {
-    switch (Deno.build.arch)
+    switch (process.arch)
     {
-      case "x86_64":
+      case "ia32":
+        return "x86";
+      case "arm":
+        return "arm";
+      case "x64":
         return "x64";
-      case "aarch64":
+      case "arm64":
         return "arm64";
       default:
-        return { unknownStr: Deno.build.arch };
+        return { unknownStr: process.arch };
     }
   }
 }

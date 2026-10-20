@@ -1,3 +1,7 @@
+export { FileSystemError, NotFound, AlreadyExists, NotADirectory, IsADirectory,
+  PermissionDenied, NotCapable, BadResource, Busy, FilesystemLoop, Interrupted,
+  InvalidData, NotSupported, TimedOut, WouldBlock, BrokenPipe, UnexpectedEof, WriteZero } from "./source/errors.ts";
+export type { FileSystemErrorOptions } from "./source/errors.ts";
 export * from "./source/log.ts";
 export * from "./source/build.ts";
 export * from "./source/pathlib.ts";
@@ -33,4 +37,4 @@ export
 };
 export { autoReadFile, exit, never, urlToValidFileName, inOptions } from "./source/utils.ts";
 
-export const version = SemVer.parse("0.1.12");
+export const version = SemVer.parse("0.2.0");

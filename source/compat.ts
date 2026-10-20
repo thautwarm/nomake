@@ -1,3 +1,7 @@
+import { spawn } from "node:child_process";
+import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
+import process from "node:process";
 import
 {
   decodeBase32,
@@ -5,7 +9,6 @@ import
   encodeBase32,
   encodeBase64,
   fs,
-  Md5,
   os,
   path,
 } from "../deps.ts";
@@ -13,12 +16,7 @@ export { decodeBase32, decodeBase64, encodeBase32, encodeBase64, fs, os, path };
 
 export class Md5Hasher
 {
-  private md5: Md5;
-  constructor()
-  {
-    this.md5 = new Md5();
-  }
-
+  private md5 = createHash("md5");
   update(data: string | Uint8Array)
   {
     this.md5.update(data);
@@ -32,23 +30,23 @@ export class Md5Hasher
 
 export function getCwd()
 {
-  return Deno.cwd();
+  return process.cwd();
 }
 
 export function setEnv(name: string, val?: string)
 {
-  if (val)
+  if (val !== undefined)
   {
-    Deno.env.set(name, val);
+    process.env[name] = val;
   } else
   {
-    Deno.env.delete(name);
+    delete process.env[name];
   }
 }
 
 export function getEnv(name: string)
 {
-  return Deno.env.get(name);
+  return process.env[name];
 }
 
 export function removeUndefFields(o: { [key: string]: string | undefined })
@@ -75,13 +73,30 @@ export function removeUndefFields(o: { [key: string]: string | undefined })
   return newEnv;
 }
 
+type CommandStreamMode = "piped" | "inherit" | "null";
+
+// Describe only the native API used here, keeping Node declarations independent
+// of Deno's ambient types.
+interface DenoCommandRuntime
+{
+  Command?: new (command: string, options: {
+    args: string[];
+    cwd?: string;
+    env?: Record<string, string>;
+    stdout?: CommandStreamMode;
+    stderr?: CommandStreamMode;
+  }) => {
+    output(): Promise<{ code: number; stdout: Uint8Array; stderr: Uint8Array }>;
+  };
+}
+
 export async function spawnCmd(
   argv: string[],
   options?: {
     cwd?: string;
     env?: { [key: string]: string | undefined };
-    stderr?: "piped" | "inherit" | "null";
-    stdout?: "piped" | "inherit" | "null";
+    stderr?: CommandStreamMode;
+    stdout?: CommandStreamMode;
   },
 )
 {
@@ -96,36 +111,49 @@ export async function spawnCmd(
     throw new Error(`Command not found: ${argv[0]}`);
   }
 
-  // (Deno specific): deno env value cannot be undefined
-  const env = options?.env === undefined
-    ? undefined
-    : removeUndefFields(options?.env);
-
-  const command = new Deno.Command(
-    proc,
-    {
+  const deno = (globalThis as { Deno?: DenoCommandRuntime }).Deno;
+  if (typeof deno?.Command === "function")
+  {
+    // Native environment inheritance needs no permission to enumerate env vars.
+    const out = await new deno.Command(proc, {
       args: argv.slice(1),
-      stderr: options?.stderr,
-      stdout: options?.stdout,
       cwd: options?.cwd,
-      env: env,
-    },
-  );
+      env: options?.env === undefined ? undefined : removeUndefFields(options.env),
+      stdout: options?.stdout,
+      stderr: options?.stderr,
+    }).output();
+    return {
+      stdout: options?.stdout === "piped" ? (tryAutoDecode(out.stdout) ?? "<unknown stdout>") : "",
+      stderr: options?.stderr === "piped" ? (tryAutoDecode(out.stderr) ?? "<unknown stderr>") : "",
+      success: out.code === 0,
+      errorcode: out.code,
+    };
+  }
 
-  const out = await command.output();
-  const stdout = (options?.stdout !== "piped")
-    ? ""
-    : (tryAutoDecode(out.stdout) ?? "<unknown stdout>");
-  const stderr = (options?.stderr !== "piped")
-    ? ""
-    : (tryAutoDecode(out.stderr) ?? "<unknown stderr>");
-  const res = {
-    stdout,
-    stderr,
-    success: out.code == 0,
-    errorcode: out.code,
+  const streamMode = (mode?: CommandStreamMode) =>
+    mode === "inherit" ? "inherit" : mode === "null" ? "ignore" : "pipe";
+  const child = spawn(proc, argv.slice(1), {
+    cwd: options?.cwd,
+    env: options?.env === undefined ? undefined : { ...process.env, ...removeUndefFields(options.env) },
+    stdio: ["ignore", streamMode(options?.stdout), streamMode(options?.stderr)],
+  });
+  const stdout: Uint8Array[] = [];
+  const stderr: Uint8Array[] = [];
+  child.stdout?.on("data", (chunk: Uint8Array) => stdout.push(chunk));
+  child.stderr?.on("data", (chunk: Uint8Array) => stderr.push(chunk));
+  const code = await new Promise<number>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("close", (code, signal) => {
+      // Match Deno's 128 + signal-number convention on Unix.
+      resolve(code ?? (signal ? 128 + (os.constants.signals[signal] ?? 0) : 1));
+    });
+  });
+  return {
+    stdout: options?.stdout === "piped" ? (tryAutoDecode(Buffer.concat(stdout)) ?? "<unknown stdout>") : "",
+    stderr: options?.stderr === "piped" ? (tryAutoDecode(Buffer.concat(stderr)) ?? "<unknown stderr>") : "",
+    success: code === 0,
+    errorcode: code,
   };
-  return res;
 }
 
 export function tryAutoDecode(bytes: Uint8Array)
@@ -145,7 +173,7 @@ export function tryAutoDecode(bytes: Uint8Array)
 
 export function pathsep()
 {
-  if (Deno.build.os == "windows")
+  if (process.platform == "win32")
   {
     return ";";
   }
@@ -160,7 +188,7 @@ export async function isExe(path: string)
 {
   if (_isWindows.value === undefined)
   {
-    _isWindows.value = Deno.build.os == "windows";
+    _isWindows.value = process.platform == "win32";
   }
 
   if (_isWindows.value)
@@ -190,13 +218,13 @@ export async function isExe(path: string)
 
 export async function whichCommand(name: string)
 {
-  const list: string[] = Deno.env.get("PATH")?.split(pathsep()) || [];
-  const isWin = Deno.build.os == "windows";
+  const list: string[] = process.env["PATH"]?.split(pathsep()) || [];
+  const isWin = process.platform == "win32";
   let findExe: (p: string) => Promise<string | undefined>;
   if (isWin)
   {
     const exts =
-      ((Deno.env.get("PATHEXT")?.toLowerCase()) ?? ".exe;.cmd;.bat;.com")
+      ((process.env["PATHEXT"]?.toLowerCase()) ?? ".exe;.cmd;.bat;.com")
         ?.split(";") || [];
 
     findExe = async (p: string) =>
@@ -249,9 +277,9 @@ export async function whichCommand(name: string)
   return undefined;
 }
 
-export function readFile(p: string)
+export async function readFile(p: string): Promise<Uint8Array>
 {
-  return Deno.readFile(p);
+  return new Uint8Array(await fs.promises.readFile(p));
 }
 
 export async function allPromisesUnderLimitedParallelism<T>(
@@ -283,7 +311,7 @@ export const DEFAULT_TASK_PARALLEL_LIMIT = 12;
 
 export function getNoMakeTaskParallelLimit()
 {
-  const envSetting = Deno.env.get("NOMAKE_TASK_PARALLEL_LIMIT");
+  const envSetting = process.env["NOMAKE_TASK_PARALLEL_LIMIT"];
   if (envSetting)
   {
     const limit = parseInt(envSetting);

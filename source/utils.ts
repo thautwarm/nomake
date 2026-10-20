@@ -1,3 +1,4 @@
+import process from "node:process";
 import { fs, readFile, tryAutoDecode } from "./compat.ts";
 
 /**
@@ -155,7 +156,7 @@ export async function useAsync<T>(
  */
 export function exit(code: number): never
 {
-  Deno.exit(code);
+  process.exit(code);
 }
 
 export function never(x: never): never

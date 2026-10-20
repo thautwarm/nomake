@@ -1,7 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
+import { Buffer } from "node:buffer";
+import type { Stats } from "node:fs";
+import { fileSystemCall, toFileSystemError } from "./errors.ts";
 import { Glob } from "../deps.ts";
-import { fs, getCwd, os, path as _path } from "./compat.ts";
-import { Log } from "./log.ts";
+import { fs, getCwd, os, path as _path, readFile } from "./compat.ts";
 import { getExts } from "./utils.ts";
 
 function _toPosixPath(path: string): string
@@ -30,6 +32,16 @@ export type BufferEncoding =
   | "latin1"
   | "binary"
   | "hex";
+
+/** File write options shared by Deno and Node. */
+export interface WriteFileOptions
+{
+  append?: boolean;
+  create?: boolean;
+  createNew?: boolean;
+  mode?: number;
+  signal?: AbortSignal;
+}
 
 export class Path
 {
@@ -253,7 +265,7 @@ export class Path
     }
   }
 
-  stat(): Promise<fs.Stats>
+  stat(): Promise<Stats>
   {
     return fs.promises.stat(this.asOsPath());
   }
@@ -266,26 +278,35 @@ export class Path
 
   readBytes(): Promise<Uint8Array>
   {
-    return Deno.readFile(this.asOsPath());
+    return readFile(this.asOsPath());
   }
 
-  async writeText(data: string, options?: BufferEncoding | Deno.WriteFileOptions & { encoding?: BufferEncoding }): Promise<void>
+  async writeText(data: string, options?: BufferEncoding | WriteFileOptions & { encoding?: BufferEncoding }): Promise<void>
   {
-    if (typeof options === 'string')
+    const settings = typeof options === "string" ? { encoding: options } : options;
+    await this.writeBytes(Buffer.from(data, settings?.encoding ?? "utf-8"), settings);
+  }
+
+  async writeBytes(data: Uint8Array, options?: WriteFileOptions): Promise<void>
+  {
+    // Open without O_CREAT when create:false; append/createNew follow Deno options.
+    const flags = (options?.append ? fs.constants.O_APPEND : fs.constants.O_TRUNC)
+      | fs.constants.O_WRONLY
+      | (options?.createNew ? fs.constants.O_CREAT | fs.constants.O_EXCL
+        : options?.create === false ? 0 : fs.constants.O_CREAT);
+    fileSystemCall(() => options?.signal?.throwIfAborted());
+    const mode = os.platform() === "win32" ? undefined : options?.mode;
+    const file = await fs.promises.open(this.asOsPath(), flags, mode);
+    try
     {
-      options = { encoding: options }
+      // open's mode is creation-only and is masked by umask. Deno's explicit
+      // write mode also applies to existing files, before new data is written.
+      if (mode !== undefined) await file.chmod(mode);
+      await file.writeFile(data, { signal: options?.signal });
+    } finally
+    {
+      await file.close();
     }
-
-    const encoding = options?.encoding ?? "utf-8";
-    const newOpts = Object.assign({}, options)
-    delete newOpts.encoding;
-    if (encoding !== 'utf-8') Log.warn(`Encoding ${encoding} other than utf-8 is not supported.`)
-    await Deno.writeFile(this.asOsPath(), new TextEncoder().encode(data), newOpts);
-  }
-
-  async writeBytes(data: Uint8Array, options?: Deno.WriteFileOptions): Promise<void>
-  {
-    await Deno.writeFile(this.asOsPath(), data, options);
   }
 
   async mkdir(
@@ -353,12 +374,8 @@ export class Path
       target = new Path(target);
     }
 
-    if (!await this.exists())
-    {
-      throw new Error(`Path does not exist: ${this.asOsPath()}`);
-    }
-
-    if (await this.isFile())
+    const sourceStat = await this.stat();
+    if (sourceStat.isFile())
     {
       if (await target.isFile())
       {
@@ -378,7 +395,7 @@ export class Path
     {
       if (await target.isFile())
       {
-        throw new Error(`Cannot copy directory to file: ${target.asOsPath()}`);
+        throw toFileSystemError(new Error(`Cannot copy directory to file: ${target.asOsPath()}`));
       }
 
       if (!await target.exists())
@@ -485,7 +502,7 @@ export class Path
 
   async chmod(mode: number): Promise<void>
   {
-    await Deno.chmod(this.asOsPath(), mode);
+    await fs.promises.chmod(this.asOsPath(), mode);
   }
 
   relativeTo(target: Path | string): string
@@ -500,7 +517,7 @@ export class Path
 
   async *iterDir()
   {
-    for await (const item of Deno.readDir(this.asOsPath()))
+    for await (const item of this.entries())
     {
       yield new Path(this.join(item.name));
     }
@@ -508,12 +525,12 @@ export class Path
 
   async *entries()
   {
-    for await (const item of Deno.readDir(this.asOsPath()))
+    for await (const item of await fs.promises.readdir(this.asOsPath(), { withFileTypes: true }))
     {
       yield {
         name: item.name,
-        isDir: item.isDirectory,
-        isFile: item.isFile,
+        isDir: item.isDirectory(),
+        isFile: item.isFile(),
       };
     }
   }

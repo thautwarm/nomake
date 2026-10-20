@@ -1,83 +1,66 @@
 # NoMake: Type-safe, Multi-lingual and Distributed Build System
 
-NoMake is a build system that supports multiple programming languages, static
-type checking, intellisense and distributed building.
+NoMake defines build tasks and dependencies in TypeScript, with typed dependency
+arguments and incremental builds. Build scripts run on Node.js 24.6+ or Deno.
 
-1. [Documentation](https://thautwarm.github.io/Site-33/3-software/nomake/)
-2. Installation: download the latest release from
-   [GitHub Releases](https://github.com/thautwarm/nomake/releases)
-3. Examples:
-   1. [NoMake Starter](https://github.com/thautwarm/nomake/blob/main/startup/build.ts):
-      NoMake Release built by NoMake itself
-   2. [CToolchain](https://github.com/thautwarm/nomake/blob/main/example/ctoolchain/build.ts):
-      C/C++ example using Zig/GCC
-   3. [C# Native AOT](https://github.com/thautwarm/nomake/tree/main/example/bflatproj):
-      C# cross-platform native compilation using Bflat (no .NET SDK and Visual
-      Studio)
-   4. [Git Repository Archive](https://github.com/thautwarm/nomake/blob/main/example/repo/build.ts):
-      Target-based Git repo clone
-   5. [HTTP Archive](https://github.com/thautwarm/nomake/blob/main/example/http_archive/build.ts):
-      Target-based HTTP archive
+[Documentation](https://thautwarm.github.io/Site-33/3-software/nomake/) ·
+[Releases](https://github.com/thautwarm/nomake/releases) ·
+[ChangeLog](./ChangeLog.md)
 
 ## Quick Start
 
-[Download](https://github.com/thautwarm/nomake/releases) and unzip binaries into
-your PATH.
+For Node.js, install NoMake and set `"type": "module"` in your `package.json`:
 
-For Unix-like systems, you might use `chmod +x nomake deno` to make them
-executable.
+```sh
+npm install @nomake/core@0.2.0
+```
 
-Then your create a `build.ts` file in your project root:
+Create `input.txt` and a `build.ts`:
 
 ```typescript
-/* filename: build.ts */
+import * as NM from "@nomake/core";
 
-import * as NM from "https://github.com/thautwarm/nomake/raw/v0.1.12/mod.ts";
-
-// define options
-NM.option("legacy", ({ value }) => {/* do stuff with value */});
-
-// parse options
-NM.parseOptions();
-
-// define one or more targets
-NM.target(
-  {
-    name: "output.txt",
-    deps: { file: "input.txt" },
-    async build({ deps, target })
-    {
-      const input = await new NM.Path(deps.file).readText();
-      await new NM.Path(target).writeText(
-        "Hello, " + input,
-      );
-    },
+NM.target({
+  name: "output.txt",
+  deps: { input: "input.txt" },
+  async build({ deps, target }) {
+    const text = await new NM.Path(deps.input).readText();
+    await new NM.Path(target).writeText(`Hello, ${text}`);
   },
-);
+});
 
-NM.target(
-  {
-    name: "build",
-    deps: ["output.txt"],
-    // the top-level virtual target should be always rebuilt
-    rebuild: "always",
-  },
-);
+NM.target({
+  name: "build",
+  virtual: true,
+  rebuild: "always",
+  deps: ["output.txt"],
+});
 
-// trigger the build process
 await NM.makefile();
 ```
 
-If you create a `input.txt` file in the same directory, you can run
-`nomake output.txt` in the terminal to build `output.txt`.
+Run `node build.ts build`. Subsequent runs reuse `output.txt` until its inputs
+or output metadata change. `node build.ts help` lists virtual targets and options.
 
-Running `nomake build`, the file `output.txt` will be rebuilt only if you change
-`input.txt` again.
+For Deno, replace the import with:
 
-You could invoke the command `nomake help` to show available targets and
-options.
+```typescript
+import * as NM from "https://raw.githubusercontent.com/thautwarm/nomake/v0.2.0/mod.ts";
+```
+
+Then run `deno run -A build.ts build`. The standalone launcher from
+[Releases](https://github.com/thautwarm/nomake/releases) also runs Deno build
+scripts with `nomake build`.
+
+## Examples
+
+- [Shared Deno/Node build script](./example/dual-runtime/build.ts)
+- [C/C++ with Zig or GCC](./example/ctoolchain/build.ts)
+- [C# native compilation with Bflat](./example/bflatproj)
+- [Git repository archive](./example/repo/build.ts)
+- [HTTP archive](./example/http_archive/build.ts)
+- [Building NoMake itself](./startup/build.ts)
 
 ## License
 
-NoMake is licensed under the MIT License. See [LICENSE](./LICENSE) for more
-information.
+MIT. See [LICENSE](./LICENSE).

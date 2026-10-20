@@ -1,5 +1,19 @@
 {
+  "imports": {
+    "@nomake/core": "./mod.ts"
+  },
+  "compilerOptions": {
+    "strict": true
+  },
   "tasks": {
-    "dev": "deno run --watch main.ts"
-  }
+    "check": "deno check mod.ts test.ts tests/*.test.ts example/dual-runtime/build.ts",
+    "test": "deno test -A test.ts tests/",
+    "example": "deno run -A example/dual-runtime/build.ts",
+    "bundle": "deno bundle --platform=deno --format=esm mod.ts -o dist/index.js"
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "local"
+  ]
 }

@@ -1,22 +1,19 @@
-import * as Glob from "https://deno.land/std@0.224.0/fs/expand_glob.ts";
-import * as SemVer from "https://deno.land/std@0.224.0/semver/mod.ts";
+import * as Glob from "./vendor/deno-std/expand_glob.ts";
+import * as SemVer from "jsr:@std/semver@0.224.0";
 
 import
 {
     decodeBase64,
     encodeBase64,
-} from "https://deno.land/std@0.224.0/encoding/base64.ts";
+} from "jsr:@std/encoding@0.224.0/base64";
 
 import
 {
     decodeBase32,
     encodeBase32,
-} from "https://deno.land/std@0.224.0/encoding/base32.ts";
+} from "jsr:@std/encoding@0.224.0/base32";
 
-import { Md5 } from "https://deno.land/std@0.119.0/hash/md5.ts";
-
-// @deno-types="npm:@types/node"
-import * as fs from "node:fs";
+import * as fs from "./source/filesystem.ts";
 import * as path from "node:path";
 import * as os from "node:os";
 
@@ -27,7 +24,6 @@ export
     encodeBase64,
     encodeBase32,
     decodeBase32,
-    Md5,
     fs, path, os,
 }
 

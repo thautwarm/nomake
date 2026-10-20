@@ -28,7 +28,7 @@ NM.target({
     if (!cc)
     {
       NM.Log.error("no C compiler found, exit");
-      Deno.exit(1);
+      NM.exit(1);
     }
 
     await new NM.Path(Artifacts.Exe).parent.mkdir({
@@ -72,4 +72,4 @@ NM.target(
     },
   });
 
-NM.makefile(Deno.args);
+await NM.makefile();

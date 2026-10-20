@@ -1,0 +1,48 @@
+{
+  "name": "@nomake/core",
+  "version": "0.2.0",
+  "description": "Type-safe build tasks for Deno and Node.js",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.6.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "ChangeLog.md"
+  ],
+  "scripts": {
+    "check": "deno task check && tsc --noEmit",
+    "build": "node scripts/build.ts",
+    "test": "npm run build && node scripts/test-node.ts",
+    "test:package": "npm run build && node scripts/test-package.ts",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "dts-bundle-generator": "^9.5.1",
+    "shlex": "^3.0.0",
+    "typescript": "~5.9.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thautwarm/nomake.git"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "homepage": "https://github.com/thautwarm/nomake#readme",
+  "bugs": {
+    "url": "https://github.com/thautwarm/nomake/issues"
+  }
+}

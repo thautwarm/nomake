@@ -1,3 +1,5 @@
+import { appendFileSync } from "node:fs";
+import process from "node:process";
 import { Path } from './pathlib.ts';
 
 export interface ILogger
@@ -111,7 +113,7 @@ class FileTransport implements Transport
     try
     {
 
-      Deno.writeTextFileSync(file.asOsPath(), mainMsg, { append: true });
+      appendFileSync(file.asOsPath(), mainMsg);
     }
     catch
     {
@@ -152,7 +154,7 @@ class ConsoleTransport implements Transport
 
 function getDefaultLogLevel(): LogLevel
 {
-  const level = Deno.env.get("NOMAKE_LOG_LEVEL");
+  const level = process.env["NOMAKE_LOG_LEVEL"];
   if (!level) return "normal";
   switch (level.toLocaleLowerCase())
   {
